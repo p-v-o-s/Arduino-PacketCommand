@@ -32,44 +32,53 @@
 
 #define PACKETCOMMAND_MAXCOMMANDS_DEFAULT 10
 #define MAX_TYPE_ID_LEN 4
-#define ERROR_EMPTY_PACKET -1
-#define ERROR_COMMAND_TYPE_INDEX_OUT_OF_RANGE -2
-#define ERROR_INVALID_TYPE_ID -3
 // Uncomment the next line to run the library in debug mode (verbose messages)
 //#define PACKETCOMMAND_DEBUG
 
 /******************************************************************************/
+// Status and Error  Codes
+typedef enum StatusCode {
+  SUCCESS = 0,
+  ERROR_EXCEDED_MAX_COMMANDS = -1,
+  ERROR_INVALID_PACKET       = -2,
+  ERROR_INVALID_TYPE_ID      = -3,
+  ERROR_NO_TYPE_ID_MATCH     = -4,
+  ERROR_NULL_HANDLER_FUNCTION_POINTER = -5
+} PACKETCOMMAND_STATUS;
+
+/******************************************************************************/
 // PacketCommand (extends Print) 
 // so that callbacks print 
-class PacketCommand : public Print {
+class PacketCommand{
   public:
     // Constructor
-    PacketCommand(int maxCommands = PACKETCOMMAND_MAXCOMMANDS_DEFAULT,
-                  Stream &log = NULL
-                 );       
-    void addCommand(const byte *type_id, void(*function)(PacketCommand));       // Add a command to the processing dictionary.
-    void setDefaultHandler(void (*function)(PacketCommand));                    // A handler to call when no valid command received.
-    void readBuffer(byte *pkt, size_t len);    // Read packet header and dispatch to the registered handler function
-    void dispatch();
+    PacketCommand(int maxCommands = PACKETCOMMAND_MAXCOMMANDS_DEFAULT);
+    PACKETCOMMAND_STATUS addCommand(const char *type_id,
+                                    const char *name, 
+                                    void(*function)(PacketCommand));            // Add a command to the processing dictionary.
+    PACKETCOMMAND_STATUS setDefaultHandler(void (*function)(PacketCommand));    // A handler to call when no valid command received.
+    PACKETCOMMAND_STATUS readBuffer(char *pkt, size_t len);                     // Read packet header and loacte a matching registered handler function
+    PACKETCOMMAND_STATUS dispatch();
     //provide method for printing to logging stream
-    size_t write(uint8_t val);
+    //size_t write(uint8_t val);
 
   private:
-    //Stream object for logging output
-    Stream &_log;
     // Command/handler info
     struct PacketCommandInfo {
-      const byte *type_id;
+      char type_id[MAX_TYPE_ID_LEN];     //limited size type ID must be respected!
       const char *name;
-      void (*function)(PacketCommand);  //handler callback function
+      void (*function)(PacketCommand);     //handler callback function
     };                                     
     PacketCommandInfo *_commandList;    //array to hold command entries
-    PacketCommandInfo _current_command ; //
+    PacketCommandInfo _current_command; //command ready to dispatch
+    PacketCommandInfo _default_command; //called when a packet's Type ID is not recognized
     int  _commandCount;
     int  _maxCommands;
+    //packet data processing info to track
+    char   *_pkt_data;
+    int     _pkt_index;
+    size_t  _pkt_len;
 
-//    // Pointer to the default handler function
-//    void (*_defaultHandler)(PacketCommandDispatcher);
 };
 
 #endif //PACKETCOMMAND_H

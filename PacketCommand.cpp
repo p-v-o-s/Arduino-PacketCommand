@@ -17,25 +17,15 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "PacketCommand.h"
-//#define PACKETCOMMAND_DEBUG
 /**
  * Constructor makes sure some things are set.
  */
-PacketCommand::PacketCommand(int maxCommands,
-                             Stream &log,
-                            )
-  : _log(log),           // reference must be initialized right away
-    _commandList(NULL),
-    _commandCount(0),
+PacketCommand::PacketCommand(int maxCommands)
+  : _commandCount(0)
 {
   _maxCommands = maxCommands;
-  //allocate memory for the command lookup and intialize with null pointers
-  _commandLookup = (PacketCommandInfo*) malloc(maxCommands, sizeof(PacketCommandCallback));
-  for(int i=0; i <= maxCommands; i++){
-    _commandLookup[i].type_id = 0;
-    _commandLookup[i].name = "";
-    _commandLookup[i].function = NULL;
-  }
+  //allocate memory for the command lookup and intialize with all null pointers
+  _commandList = (PacketCommandInfo*) calloc(maxCommands, sizeof(PacketCommandInfo));
 }
 
 /**
@@ -43,41 +33,113 @@ PacketCommand::PacketCommand(int maxCommands,
  * This is used for matching a found token in the buffer, and gives the pointer
  * to the handler function to deal with it.
  */
-void PacketCommand::addCommand(const byte *type_id,
-                               const char *name,
-                               void (*function)(PacketCommand)) {
-  #ifdef PacketCommand_DEBUG
-    write("Adding command (");
-    write(_commandCount);
-    write("): ");
-    writeln(command);
+PACKETCOMMAND_STATUS PacketCommand::addCommand(const char *type_id,
+                                               const char *name,
+                                               void (*function)(PacketCommand)) {
+  byte cur_byte = 0x00;
+  int type_id_len = strlen(type_id);
+  struct PacketCommandInfo new_command;
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.print(F("Adding command #("));
+  Serial.print(_commandCount);
+  Serial.print(F("): "));
+  Serial.println(name);
+  Serial.println(type_id_len);
   #endif
   if (_commandCount >= _maxCommands){
-      #ifdef PacketCommand_DEBUG
-      write("Error: maxCommands was exceeded");
+      #ifdef PACKETCOMMAND_DEBUG
+      Serial.print(F("Error: exceeded maxCommands="));
+      Serial.println(_maxCommands);
       #endif
-      return;
+      return ERROR_EXCEDED_MAX_COMMANDS;
   }
-  //add to the list
-  _commandList[_commandCount].type_id  = type_id;
-  _commandList[_commandCount].name     = name;
-  _commandList[_commandCount].function = function;
+  if (type_id_len > MAX_TYPE_ID_LEN){
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.print(F("Error: 'type_id' cannot exceed MAX_TYPE_ID_LEN="));
+    Serial.println(MAX_TYPE_ID_LEN);
+    #endif
+    return ERROR_INVALID_TYPE_ID;
+  }
+  //check the type_id format
+  for(int i=0; i < MAX_TYPE_ID_LEN; i++){
+    if (i < type_id_len){
+      //test if the type ID rules are followed
+      cur_byte = type_id[i];
+      #ifdef PACKETCOMMAND_DEBUG
+      Serial.print(F("checking type ID byte: "));
+      Serial.println(cur_byte, HEX);
+      #endif
+      switch(cur_byte){
+        case 0xFF:
+          if (i < (type_id_len - 1)){
+            //continue extended type ID
+            #ifdef PACKETCOMMAND_DEBUG
+            Serial.println(F("\tcontinue extended type ID"));
+            #endif
+            new_command.type_id[i] = 0xFF;
+          }
+          else{//cannot end type_id with 0xFF
+            #ifdef PACKETCOMMAND_DEBUG
+            Serial.println(F("Error: 'type_id' cannot end with 0xFF"));
+            #endif
+            return ERROR_INVALID_TYPE_ID;
+          }
+          break;
+        case 0x00:
+          #ifdef PACKETCOMMAND_DEBUG
+          Serial.println(F("Error: 'type_id' cannot contain null (0x00) bytes"));
+          #endif
+          return ERROR_INVALID_TYPE_ID;
+          break;
+        default:  //any other byte value
+          if(i == (type_id_len - 1)){//valid type ID completed
+            #ifdef PACKETCOMMAND_DEBUG
+            Serial.println(F("valid type ID completed"));
+            #endif
+            new_command.type_id[i] = cur_byte;
+          }
+          else{
+            #ifdef PACKETCOMMAND_DEBUG
+            Serial.println(F("Error: 'type_id' cannot have a prefix != [0xFF]*"));
+            #endif
+            return ERROR_INVALID_TYPE_ID;
+          }
+      }
+      //end testing bytes of type_id
+    }
+    else{  //pad remainder with zeros
+      new_command.type_id[i] = 0x00;
+    }
+  }
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.print(F("type_id="));
+  for(int i=0; i < MAX_TYPE_ID_LEN; i++){
+    Serial.print(new_command.type_id[i], HEX);
+  }
+  Serial.println();
+  #endif
+  //finish formatting command info
+  new_command.name     = name;
+  new_command.function = function;
+  _commandList[_commandCount] = new_command;
   _commandCount++;
+  return SUCCESS;
 }
 
 /**
- * This sets up a handler to be called in the event that the receveived command string
- * isn't in the list of commands.
+ * This sets up a handler to be called in the event that packet is send for
+ * which a type ID cannot be matched
  */
-void PacketCommand::setDefaultHandler(void (*function)(const char *, PacketCommand)) {
-  //make a new command entry
-  struct PacketCommandInfo new_info;
-  new_info.command  = command;
-  new_info.function = function;
-  _commandList[_commandCount] = new_info;
-  _defaultHandler = function;
+PACKETCOMMAND_STATUS PacketCommand::setDefaultHandler(void (*function)(PacketCommand)) {
+  //
+  if (function != NULL){
+    _default_command.function = function;
+    return SUCCESS;
+  }
+  else{
+    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+  }
 }
-
 
 /**
  * This checks the characters in the buffer looking for a valid type_id prefix
@@ -89,72 +151,108 @@ void PacketCommand::setDefaultHandler(void (*function)(const char *, PacketComma
  * command entries, and if a match is found it is saved in the _current_handler
  * private attribute;  otherwise, _current_handler is set to NULL
  */
-int PacketCommand::readBuffer(byte *pkt, size_t len) {
-  byte *type_id[MAX_TYPE_ID_LEN];
-  byte cur_byte;
-  int pkt_index = 0;
-  int type_id_index = 0;
+PACKETCOMMAND_STATUS PacketCommand::readBuffer(char *pkt, size_t len) {
+  char cur_byte = 0x00;
+  _current_command = _default_command;
+  _pkt_data  = pkt;
+  _pkt_index = 0;
+  _pkt_len = len;
   //parse out type_id from header
-  while(pkt_index < len){
-    cur_byte = pkt[pkt_index];
-    type_id[type_id_index] = cur_byte;
-    if (cur_byte == 0x00){
-      #ifdef PacketCommand_DEBUG
-      write("Error: invalid 'type_id' detected, cannot contain null (0x00) bytes");
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("In PacketCommand::readBuffer"));
+  #endif
+  while(_pkt_index < (int) _pkt_len){
+    cur_byte = _pkt_data[_pkt_index];
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.print(F("cur_byte="));Serial.println(cur_byte,HEX);
+    #endif
+    if (cur_byte != 0xFF and cur_byte != 0x00){ //valid type ID completed
+      #ifdef PACKETCOMMAND_DEBUG
+      Serial.println(F("valid 'type ID' format detected"));
+      #endif
+      break;
+    }  
+    else if (cur_byte == 0xFF){ //extended type ID, need to check the next byte
+      _pkt_index++;
+      if (_pkt_index >= MAX_TYPE_ID_LEN){
+        #ifdef PACKETCOMMAND_DEBUG
+        Serial.println(F("Error: invalid 'type ID' detected, exceeded maximum length"));
+        #endif
+        return ERROR_INVALID_TYPE_ID;
+      }
+      else if (_pkt_index >= (int) _pkt_len ){  //0xFF cannot end the type_id
+        #ifdef PACKETCOMMAND_DEBUG
+        Serial.println(F("Error: invalid packet detected, 'type ID' does not terminate before reaching end of packet"));
+        #endif
+        return ERROR_INVALID_PACKET;
+      }
+    }
+    else{ //must be 0x00
+      #ifdef PACKETCOMMAND_DEBUG
+      Serial.println(F("Error: invalid 'type ID' detected, cannot contain null (0x00) bytes"));
       #endif
       return ERROR_INVALID_TYPE_ID;
     }
-    elif (cur_byte != 0xFF){ break;}    //valid type ID
-    type_id_index++;
-    pkt_index++;
-    if (type_id_index >= MAX_TYPE_ID_LEN){
-      #ifdef PacketCommand_DEBUG
-      write("Error: invalid 'type_id' detected, exceeded maximum length");
-      #endif
-      return ERROR_INVALID_TYPE_ID;
+  }
+  //For a valid type ID 'cur_byte' will be euqal its last byte and all previous
+  //bytes must have been 0xFF or nothing, so we only need to check the 
+  //corresponding byte for a match in the registered command list.  Also,
+  //since pkt_index must be < MAX_TYPE_ID_LEN at this point, it should be within
+  //the bounds; and since 'cur_byte' != 0x00 as well, shorter type IDs should
+  //not match since the unused bytes are initialized to 0x00.
+  for(int i=0; i <= _maxCommands; i++){
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.print(F("Searching command at index="));
+    Serial.println(i);
+    Serial.print(F("\ttype_id["));Serial.print(_pkt_index);Serial.print(F("]="));
+    Serial.println(_commandList[i].type_id[_pkt_index]);
+    #endif
+    if(_commandList[i].type_id[_pkt_index] == cur_byte){
+       //a match has been found, so save it and stop
+       #ifdef PACKETCOMMAND_DEBUG
+       Serial.println(F("match found"));
+       #endif
+       _current_command = _commandList[i];
+       return SUCCESS;
     }
   }
-  if ( cur_byte == 0xFF){
-  }
-    
-    for(int i=0; i <= maxCommands; i++){
-       if (_commandLookup[i].type_id == com){};
-    }
-  }
-      void (*handler_function)(PacketCommand) =  _commandLookup[];
-    }
-    else{
-      return ERROR_COMMAND_TYPE_INDEX_OUT_OF_RANGE;
-    }
-  }
-  else{
-    return ERROR_EMPTY_PACKET;
-  }
-}
-
-/*
- * Clear the input buffer.
- */
-void PacketCommand::clearBuffer() {
-  _buffer[0] = '\0';
-  _bufPos = 0;
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("No match found for this packet's type ID"));
+  #endif
+  return ERROR_NO_TYPE_ID_MATCH;
 }
 
 /**
- * Retrieve the next token ("word" or "argument") from the command buffer.
- * Returns NULL if no more tokens exist.
- */
-char *PacketCommand::next() {
-  return strtok_r(NULL, _delim, &_last);
+ * Execute the stored handler function for the current command,
+ * passing in the "this" current PacketCommandCommand object
+*/
+PACKETCOMMAND_STATUS PacketCommand::dispatch() {
+  if (_current_command.function != NULL){
+    (*_current_command.function)(*this);
+    return SUCCESS;
+  }
+  else{
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("Error: tried to dispatch a NULL handler function pointer"));
+  #endif
+    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+  }
 }
+///**
+// * Retrieve the next token ("word" or "argument") from the command buffer.
+// * Returns NULL if no more tokens exist.
+// */
+//char *PacketCommand::next() {
+//  return strtok_r(NULL, _delim, &_last);
+//}
 
 /*
- * forward all writes to the encapsulated "port" Stream object
+ * forward all writes to the encapsulated "log" Stream object
  */
-size_t PacketCommand::write(uint8_t val) {
-  size_t bytes_out = 0;
-  if (_log != NULL){ 
-    bytes_out = _port.write(val);
-  }
-  return bytes_out;
-}
+//size_t PacketCommand::write(uint8_t val) {
+//  size_t bytes_out = 0;
+//  if (_log != NULL){ 
+//    bytes_out = _log.write(val);
+//  }
+//  return bytes_out;
+//}
