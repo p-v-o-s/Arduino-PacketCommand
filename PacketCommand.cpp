@@ -238,6 +238,26 @@ PACKETCOMMAND_STATUS PacketCommand::dispatch() {
     return ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
 }
+
+int PacketCommand::getPacketIndex(){
+  return _pkt_index;
+}
+
+PACKETCOMMAND_STATUS PacketCommand::setPacketIndex(int new_pkt_index){
+  if (new_pkt_index >= 0 && 
+      new_pkt_index <  (int) _pkt_len){
+    _pkt_index = new_pkt_index;
+    return SUCCESS;
+  }
+  else{
+    return ERROR_PACKET_INDEX_OUT_OF_BOUNDS;
+  }
+}
+
+PACKETCOMMAND_STATUS PacketCommand::movePacketIndex(int n){
+  return setPacketIndex(_pkt_index + n);
+}
+
 ///**
 // * Retrieve the next token ("word" or "argument") from the command buffer.
 // * Returns NULL if no more tokens exist.

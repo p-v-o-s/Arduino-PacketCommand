@@ -59,6 +59,9 @@ class PacketCommand{
     PACKETCOMMAND_STATUS setDefaultHandler(void (*function)(PacketCommand));    // A handler to call when no valid command received.
     PACKETCOMMAND_STATUS readBuffer(char *pkt, size_t len);                     // Read packet header and loacte a matching registered handler function
     PACKETCOMMAND_STATUS dispatch();
+    int geditPacketIndex();
+    PACKETCOMMAND_STATUS setPacketIndex(int new_pkt_index);
+    PACKETCOMMAND_STATUS movePacketIndex(int n);
     //provide method for printing to logging stream
     //size_t write(uint8_t val);
 
