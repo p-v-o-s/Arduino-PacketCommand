@@ -28,6 +28,9 @@
   #include <WProgram.h>
 #endif
 #include <Stream.h>
+#include <stdint.h>
+typedef float  float32_t;
+typedef double float64_t;
 
 
 #define PACKETCOMMAND_MAXCOMMANDS_DEFAULT 10
@@ -43,42 +46,66 @@ typedef enum StatusCode {
   ERROR_INVALID_PACKET       = -2,
   ERROR_INVALID_TYPE_ID      = -3,
   ERROR_NO_TYPE_ID_MATCH     = -4,
-  ERROR_NULL_HANDLER_FUNCTION_POINTER = -5
+  ERROR_NULL_HANDLER_FUNCTION_POINTER = -5,
+  ERROR_PACKET_INDEX_OUT_OF_BOUNDS = -6
 } PACKETCOMMAND_STATUS;
 
 /******************************************************************************/
-// PacketCommand (extends Print) 
-// so that callbacks print 
+
+
+/******************************************************************************/
+// PacketCommand (extends Print)
+// so that callbacks print
 class PacketCommand{
   public:
+     // Command/handler info structure
+    struct CommandInfo {
+      byte type_id[MAX_TYPE_ID_LEN];     //limited size type ID must be respected!
+      const char* name;
+      void (*function)(PacketCommand);     //handler callback function
+    };
     // Constructor
     PacketCommand(int maxCommands = PACKETCOMMAND_MAXCOMMANDS_DEFAULT);
-    PACKETCOMMAND_STATUS addCommand(const char *type_id,
-                                    const char *name, 
+    PACKETCOMMAND_STATUS addCommand(const byte* type_id,
+                                    const char* name, 
                                     void(*function)(PacketCommand));            // Add a command to the processing dictionary.
     PACKETCOMMAND_STATUS setDefaultHandler(void (*function)(PacketCommand));    // A handler to call when no valid command received.
-    PACKETCOMMAND_STATUS readBuffer(char *pkt, size_t len);                     // Read packet header and loacte a matching registered handler function
+    PACKETCOMMAND_STATUS readBuffer(byte* pkt, size_t len);                     // Read packet header and loacte a matching registered handler function
+    CommandInfo          getCurrentCommand();
     PACKETCOMMAND_STATUS dispatch();
-    int geditPacketIndex();
+    int getPacketIndex();
     PACKETCOMMAND_STATUS setPacketIndex(int new_pkt_index);
     PACKETCOMMAND_STATUS movePacketIndex(int n);
+    //unpacking chars and bytes
+    PACKETCOMMAND_STATUS unpack_byte(byte& varByRef);
+    PACKETCOMMAND_STATUS unpack_byte_array(byte* buffer, int len);
+    PACKETCOMMAND_STATUS unpack_char(char& varByRef);
+    PACKETCOMMAND_STATUS unpack_char_array(char* buffer, int len);
+    //unpacking stdint types
+    PACKETCOMMAND_STATUS unpack_int8(    int8_t& varByRef);
+    PACKETCOMMAND_STATUS unpack_uint8(  uint8_t& varByRef);
+    PACKETCOMMAND_STATUS unpack_int16(  int16_t& varByRef);
+    PACKETCOMMAND_STATUS unpack_uint16(uint16_t& varByRef);
+    PACKETCOMMAND_STATUS unpack_int32(  int32_t& varByRef);
+    PACKETCOMMAND_STATUS unpack_uint32(uint32_t& varByRef);
+    PACKETCOMMAND_STATUS unpack_int64(  int64_t& varByRef);
+    PACKETCOMMAND_STATUS unpack_uint64(uint64_t& varByRef);
+    //unpacking floating point types
+    PACKETCOMMAND_STATUS unpack_float(        float& varByRef);
+    PACKETCOMMAND_STATUS unpack_double(      double& varByRef);
+    PACKETCOMMAND_STATUS unpack_float32(  float32_t& varByRef);
+    PACKETCOMMAND_STATUS unpack_float64(  float64_t& varByRef);
     //provide method for printing to logging stream
     //size_t write(uint8_t val);
 
-  private:
-    // Command/handler info
-    struct PacketCommandInfo {
-      char type_id[MAX_TYPE_ID_LEN];     //limited size type ID must be respected!
-      const char *name;
-      void (*function)(PacketCommand);     //handler callback function
-    };                                     
-    PacketCommandInfo *_commandList;    //array to hold command entries
-    PacketCommandInfo _current_command; //command ready to dispatch
-    PacketCommandInfo _default_command; //called when a packet's Type ID is not recognized
+  private:                                
+    CommandInfo *_commandList;    //array to hold command entries
+    CommandInfo _current_command; //command ready to dispatch
+    CommandInfo _default_command; //called when a packet's Type ID is not recognized
     int  _commandCount;
     int  _maxCommands;
     //packet data processing info to track
-    char   *_pkt_data;
+    byte*   _pkt_data;
     int     _pkt_index;
     size_t  _pkt_len;
 

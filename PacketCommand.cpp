@@ -17,7 +17,7 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "PacketCommand.h"
-#include <stdint.h>
+
 /**
  * Constructor makes sure some things are set.
  */
@@ -26,7 +26,7 @@ PacketCommand::PacketCommand(int maxCommands)
 {
   _maxCommands = maxCommands;
   //allocate memory for the command lookup and intialize with all null pointers
-  _commandList = (PacketCommandInfo*) calloc(maxCommands, sizeof(PacketCommandInfo));
+  _commandList = (CommandInfo*) calloc(maxCommands, sizeof(CommandInfo));
 }
 
 /**
@@ -34,12 +34,12 @@ PacketCommand::PacketCommand(int maxCommands)
  * This is used for matching a found token in the buffer, and gives the pointer
  * to the handler function to deal with it.
  */
-PACKETCOMMAND_STATUS PacketCommand::addCommand(const char *type_id,
-                                               const char *name,
+PACKETCOMMAND_STATUS PacketCommand::addCommand(const byte* type_id,
+                                               const char* name,
                                                void (*function)(PacketCommand)) {
   byte cur_byte = 0x00;
-  int type_id_len = strlen(type_id);
-  struct PacketCommandInfo new_command;
+  int type_id_len = strlen((char*) type_id);
+  struct CommandInfo new_command;
   #ifdef PACKETCOMMAND_DEBUG
   Serial.print(F("Adding command #("));
   Serial.print(_commandCount);
@@ -115,7 +115,9 @@ PACKETCOMMAND_STATUS PacketCommand::addCommand(const char *type_id,
   #ifdef PACKETCOMMAND_DEBUG
   Serial.print(F("type_id="));
   for(int i=0; i < MAX_TYPE_ID_LEN; i++){
-    Serial.print(new_command.type_id[i], HEX);
+    if( new_command.type_id[i] != 0x00 ){
+      Serial.print(new_command.type_id[i], HEX);
+    }
   }
   Serial.println();
   #endif
@@ -132,7 +134,6 @@ PACKETCOMMAND_STATUS PacketCommand::addCommand(const char *type_id,
  * which a type ID cannot be matched
  */
 PACKETCOMMAND_STATUS PacketCommand::setDefaultHandler(void (*function)(PacketCommand)) {
-  //
   if (function != NULL){
     _default_command.function = function;
     return SUCCESS;
@@ -152,8 +153,8 @@ PACKETCOMMAND_STATUS PacketCommand::setDefaultHandler(void (*function)(PacketCom
  * command entries, and if a match is found it is saved in the _current_handler
  * private attribute;  otherwise, _current_handler is set to NULL
  */
-PACKETCOMMAND_STATUS PacketCommand::readBuffer(char *pkt, size_t len) {
-  char cur_byte = 0x00;
+PACKETCOMMAND_STATUS PacketCommand::readBuffer(byte* pkt, size_t len) {
+  byte cur_byte = 0x00;
   _current_command = _default_command;
   _pkt_data  = pkt;
   _pkt_index = 0;
@@ -171,9 +172,11 @@ PACKETCOMMAND_STATUS PacketCommand::readBuffer(char *pkt, size_t len) {
       #ifdef PACKETCOMMAND_DEBUG
       Serial.println(F("valid 'type ID' format detected"));
       #endif
+      _current_command.type_id[_pkt_index] = cur_byte;
       break;
     }  
     else if (cur_byte == 0xFF){ //extended type ID, need to check the next byte
+      _current_command.type_id[_pkt_index] = 0xFF;
       _pkt_index++;
       if (_pkt_index >= MAX_TYPE_ID_LEN){
         #ifdef PACKETCOMMAND_DEBUG
@@ -214,13 +217,30 @@ PACKETCOMMAND_STATUS PacketCommand::readBuffer(char *pkt, size_t len) {
        Serial.println(F("match found"));
        #endif
        _current_command = _commandList[i];
-       return SUCCESS;
+       return movePacketIndex(1);  //increment prepare for data unpacking
     }
   }
-  #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("No match found for this packet's type ID"));
-  #endif
-  return ERROR_NO_TYPE_ID_MATCH;
+  //no type ID has been matched
+  if (_default_command.function != NULL){  //set the default handler if it has been registered
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("Setting the default command handler"));
+    #endif
+    _current_command.function = _default_command.function;
+    return movePacketIndex(1);  //increment prepare for data unpacking
+  }
+  else{  //otherwise return and error condition
+      #ifdef PACKETCOMMAND_DEBUG
+      Serial.println(F("No match found for this packet's type ID"));
+      #endif
+      return ERROR_NO_TYPE_ID_MATCH;
+  }
+}
+
+/**
+ * Send back the currently active command info structure
+*/
+PacketCommand::CommandInfo PacketCommand::getCurrentCommand() {
+    return _current_command;
 }
 
 /**
@@ -259,29 +279,95 @@ PACKETCOMMAND_STATUS PacketCommand::movePacketIndex(int n){
   return setPacketIndex(_pkt_index + n);
 }
 
-PACKETCOMMAND_STATUS PacketCommand::unpack_uint16(uint16_t *valByRef){
-  *valByRef = (uint16_t) _pkt_data[_pkt_index];
-  return movePacketIndex(sizeof(uint16_t));
+/******************************************************************************/
+// Byte field unpacking methods
+/******************************************************************************/
+//bytes and chars
+PACKETCOMMAND_STATUS PacketCommand::unpack_byte(byte& varByRef){
+  varByRef = *((byte*)(_pkt_data+_pkt_index));
+  return movePacketIndex(sizeof(byte));
 }
 
-PACKETCOMMAND_STATUS PacketCommand::unpack_uint32(uint32_t *valByRef){
-  *valByRef = (uint32_t) _pkt_data[_pkt_index];
-  return movePacketIndex(sizeof(uint32_t));
+PACKETCOMMAND_STATUS PacketCommand::unpack_byte_array(byte* buffer, int len){
+  for(int i=0; i < len; i++){
+    buffer[i] = _pkt_data[_pkt_index + i];
+  }
+  return movePacketIndex(len*sizeof(byte));
 }
 
-PACKETCOMMAND_STATUS PacketCommand::unpack_int16(int16_t *valByRef){
-  *valByRef = (int16_t) _pkt_data[_pkt_index];
+PACKETCOMMAND_STATUS PacketCommand::unpack_char(char& varByRef){
+  varByRef = *((char*)(_pkt_data+_pkt_index));
+  return movePacketIndex(sizeof(char));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::unpack_char_array(char* buffer, int len){
+  for(int i=0; i < len; i++){
+    buffer[i] = _pkt_data[_pkt_index + i];
+  }
+  return movePacketIndex((len-1)*sizeof(char));
+}
+
+//stdint types
+PACKETCOMMAND_STATUS PacketCommand::unpack_int8(int8_t& varByRef){
+  varByRef = *((int8_t*)(_pkt_data+_pkt_index));
+  return movePacketIndex(sizeof(int8_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::unpack_uint8(uint8_t& varByRef){
+  varByRef = *((uint8_t*)(_pkt_data+_pkt_index));
+  return movePacketIndex(sizeof(uint8_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::unpack_int16(int16_t& varByRef){
+  varByRef = *((int16_t*)(_pkt_data+_pkt_index));
   return movePacketIndex(sizeof(int16_t));
 }
 
-PACKETCOMMAND_STATUS PacketCommand::unpack_int32(int32_t *valByRef){
-  *valByRef = (int32_t) _pkt_data[_pkt_index];
+PACKETCOMMAND_STATUS PacketCommand::unpack_uint16(uint16_t& varByRef){
+  varByRef = *((uint16_t*)(_pkt_data+_pkt_index));
+  return movePacketIndex(sizeof(uint16_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::unpack_int32(int32_t& varByRef){
+  varByRef = *((int32_t*)(_pkt_data+_pkt_index));
   return movePacketIndex(sizeof(int32_t));
 }
 
-PACKETCOMMAND_STATUS PacketCommand::unpack_float32(float32_t *valByRef){
-  *valByRef = (float32_t) _pkt_data[_pkt_index];
+PACKETCOMMAND_STATUS PacketCommand::unpack_uint32(uint32_t& varByRef){
+  varByRef = *((uint32_t*)(_pkt_data+_pkt_index));
+  return movePacketIndex(sizeof(uint32_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::unpack_int64(int64_t& varByRef){
+  varByRef = *((int64_t*)(_pkt_data+_pkt_index));
+  return movePacketIndex(sizeof(int16_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::unpack_uint64(uint64_t& varByRef){
+  varByRef = *((uint64_t*)(_pkt_data+_pkt_index));
+  return movePacketIndex(sizeof(uint64_t));
+}
+
+//floating point
+
+PACKETCOMMAND_STATUS PacketCommand::unpack_float(float& varByRef){
+  varByRef = *((float*)(_pkt_data+_pkt_index));
+  return movePacketIndex(sizeof(float));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::unpack_double(double& varByRef){
+  varByRef = *((double*)(_pkt_data+_pkt_index));
+  return movePacketIndex(sizeof(double));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::unpack_float32(float32_t& varByRef){
+  varByRef = *((float32_t*)(_pkt_data+_pkt_index));
   return movePacketIndex(sizeof(float32_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::unpack_float64(float64_t& varByRef){
+  varByRef = *((float64_t*)(_pkt_data+_pkt_index));
+  return movePacketIndex(sizeof(float64_t));
 }
 
 
