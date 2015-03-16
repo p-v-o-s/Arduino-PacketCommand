@@ -17,6 +17,7 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "PacketCommand.h"
+#include <stdint.h>
 /**
  * Constructor makes sure some things are set.
  */
@@ -257,6 +258,32 @@ PACKETCOMMAND_STATUS PacketCommand::setPacketIndex(int new_pkt_index){
 PACKETCOMMAND_STATUS PacketCommand::movePacketIndex(int n){
   return setPacketIndex(_pkt_index + n);
 }
+
+PACKETCOMMAND_STATUS PacketCommand::unpack_uint16(uint16_t *valByRef){
+  *valByRef = (uint16_t) _pkt_data[_pkt_index];
+  return movePacketIndex(sizeof(uint16_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::unpack_uint32(uint32_t *valByRef){
+  *valByRef = (uint32_t) _pkt_data[_pkt_index];
+  return movePacketIndex(sizeof(uint32_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::unpack_int16(int16_t *valByRef){
+  *valByRef = (int16_t) _pkt_data[_pkt_index];
+  return movePacketIndex(sizeof(int16_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::unpack_int32(int32_t *valByRef){
+  *valByRef = (int32_t) _pkt_data[_pkt_index];
+  return movePacketIndex(sizeof(int32_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::unpack_float32(float32_t *valByRef){
+  *valByRef = (float32_t) _pkt_data[_pkt_index];
+  return movePacketIndex(sizeof(float32_t));
+}
+
 
 ///**
 // * Retrieve the next token ("word" or "argument") from the command buffer.
