@@ -4,9 +4,9 @@ A simple light-weight Wiring/Arduino library to dispatch binary packet commands
 to user configurable handler functions.  The term "packet" here is used to refer
 to a variable length grouping of bytes that has a well-defined structure.  A 
 valid packet must start with a variable length byte sequence that is 
-interpretted as its "type" ID.  A valid type ID is defined like this:
+interpreted as its "type ID".  A valid type ID is defined like this:
 [```0x01-0xFE```] or [```0xFF01-0xFFFE```] or ```...```; that is, if it starts 
-with a prefix [```0xFF```]*, then we include the next byte as part of the type, 
+with a prefix [```0xFF```]*, then we include the next byte as part of the type ID, 
 so that ```0x01``` is distinct from ```0xFF01``` and so on; this way, we get 
 cheap extensibility.  Type IDs must not terminate with ```0xFF``` and must not 
 include any null bytes (```0x00```), since those are reserved by the implementation.
