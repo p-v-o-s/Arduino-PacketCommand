@@ -39,8 +39,8 @@ void loop() {
   //handle incoming packets
   while (Serial.available() > 0) {
     inChar = Serial.read();   // Read single available character and place into buffer, there may be more waiting
-    Serial.print("Got char: ");
-    Serial.println(inChar);
+    //Serial.print("Got char: ");
+    //Serial.println(inChar);
     packetBuffer[packetBuffer_index] = inChar;
     packetBuffer_index++;
     if (packetBuffer_index >= PACKET_SIZE){             //we have a whole packet
@@ -50,6 +50,11 @@ void loop() {
         Serial.println(pcs);
       }
       else { //successful match or default, call the handler
+        Serial.print("Got Packet: ");
+        for(int i=0; i < PACKET_SIZE; i++){
+            Serial.write(packetBuffer[i]);
+        }
+        Serial.println();
         pCmd.dispatch();
       }
       //reset packet buffer index
