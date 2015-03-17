@@ -10,7 +10,7 @@ with a prefix [```0xFF```]*, then we include the next byte as part of the type,
 so that ```0x01``` is distinct from ```0xFF01``` and so on; this way, we get 
 cheap extensibility.  Type IDs must not terminate with ```0xFF``` and must not 
 include any null bytes (```0x00```), since those are reserved by the implementation.
-The implementation uses a constant ```MAX_TYPE_ID_LEN``` to limit the worst-case case
+The implementation uses a constant ```MAX_TYPE_ID_LEN``` to limit the worst-case
 erroneous packet detection time.
 
 Each instance of the ```PacketCommand``` class is an independent parser and dispatcher
