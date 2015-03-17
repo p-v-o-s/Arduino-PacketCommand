@@ -31,8 +31,11 @@ PacketCommand::PacketCommand(int maxCommands)
 
 /**
  * Adds a "command" and a handler function to the list of available commands.
- * This is used for matching a found token in the buffer, and gives the pointer
- * to the handler function to deal with it.
+ * The 'type_id' is specially formatted variable-length byte prefix of the form 
+ * [0xFF]*[0x01-0xFE] which is matched against the header of each packet processed
+ * by readBuffer, and is used to set up the handler function to deal with the remainder
+ * of the command parsing.  The 'name' field is a human-readable string that
+ * has no special meaning in the current the implmentation.
  */
 PACKETCOMMAND_STATUS PacketCommand::addCommand(const byte* type_id,
                                                const char* name,
@@ -146,12 +149,21 @@ PACKETCOMMAND_STATUS PacketCommand::setDefaultHandler(void (*function)(PacketCom
 /**
  * This checks the characters in the buffer looking for a valid type_id prefix
  * string, which adheres to the following pseudocode rules:
- *      For i from 0 to min(len, MAX_TYPE_ID_LEN) if type_id[i] in range from
- *      0x01 to 0xFE, then accept; else if type_id[i] == 0xFF, then increment i
- *      and repeat rule 1; else return with errorcode ERROR_INVALID_TYPE_ID.
+ *      For i from 0 to min(len, MAX_TYPE_ID_LEN) 
+ *      (1) if type_id[i] is in the character set [0x01-0xFE], then accept and break out of loop; 
+ *      (2) else if type_id[i] == 0xFF, then 
+ *           (2a) if i is not at the last value, then repeat the loop with the next value of i; 
+ *           (2b) else return with errocode ERROR_INVALID_PACKET
+ *      (3) else (must be type_id[i] == 0x00) return with errorcode ERROR_INVALID_TYPE_ID.
+ *
  * Once a valid type_id format is detected it is checked against the registered 
- * command entries, and if a match is found it is saved in the _current_handler
- * private attribute;  otherwise, _current_handler is set to NULL
+ * command entries, and if a match is found it is saved in the _current_command
+ * private attribute and we return SUCCESS. If no match is found, then the _current_command.function 
+ * is set to _default_command.function as long as that has been setup by a call to setDefaultHandler, 
+ * such that it is not NULL; otherwise, we return ERROR_NO_TYPE_ID_MATCH.  If return is SUCCESS, then
+ * the packet buffer position will have been moved past the type ID field to prepare for parsing any 
+ * following binary fields; otherwise, the packet buffer position will remain at the byte that caused 
+ * the error condition.
  */
 PACKETCOMMAND_STATUS PacketCommand::readBuffer(byte* pkt, size_t len) {
   byte cur_byte = 0x00;
@@ -198,8 +210,8 @@ PACKETCOMMAND_STATUS PacketCommand::readBuffer(byte* pkt, size_t len) {
       return ERROR_INVALID_TYPE_ID;
     }
   }
-  //For a valid type ID 'cur_byte' will be euqal its last byte and all previous
-  //bytes must have been 0xFF or nothing, so we only need to check the 
+  //For a valid type ID 'cur_byte' will be euqal to its last byte and all previous
+  //bytes, if they exist,  must have been 0xFF (or nothing), so we only need to check the 
   //corresponding byte for a match in the registered command list.  Also,
   //since pkt_index must be < MAX_TYPE_ID_LEN at this point, it should be within
   //the bounds; and since 'cur_byte' != 0x00 as well, shorter type IDs should
@@ -217,7 +229,7 @@ PACKETCOMMAND_STATUS PacketCommand::readBuffer(byte* pkt, size_t len) {
        Serial.println(F("match found"));
        #endif
        _current_command = _commandList[i];
-       return movePacketIndex(1);  //increment prepare for data unpacking
+       return movePacketIndex(1);  //increment to prepare for data unpacking
     }
   }
   //no type ID has been matched
@@ -226,7 +238,7 @@ PACKETCOMMAND_STATUS PacketCommand::readBuffer(byte* pkt, size_t len) {
     Serial.println(F("Setting the default command handler"));
     #endif
     _current_command.function = _default_command.function;
-    return movePacketIndex(1);  //increment prepare for data unpacking
+    return movePacketIndex(1);  //increment to prepare for data unpacking
   }
   else{  //otherwise return and error condition
       #ifdef PACKETCOMMAND_DEBUG
@@ -245,7 +257,7 @@ PacketCommand::CommandInfo PacketCommand::getCurrentCommand() {
 
 /**
  * Execute the stored handler function for the current command,
- * passing in the "this" current PacketCommandCommand object
+ * passing in "this" current PacketCommandCommand object
 */
 PACKETCOMMAND_STATUS PacketCommand::dispatch() {
   if (_current_command.function != NULL){
