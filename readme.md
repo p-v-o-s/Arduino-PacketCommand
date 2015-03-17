@@ -2,9 +2,10 @@ PacketCommand
 =============
 A simple light-weight Wiring/Arduino library to dispatch binary packet commands 
 to user configurable handler functions.  The style of the API was inspired heavily 
-by a fork of [Arduino-SerialCommand](https://github.com/p-v-o-s/Arduino-SerialCommand); 
-the orginal version of that library was written by [Steven Cogswell](http://husks.wordpress.com) (published May 23, 2011 in his blog post ["A Minimal Arduino Library for Processing Serial Commands"](http://husks.wordpress.com/2011/05/23/a-minimal-arduino-library-for-processing-serial-commands/)).
-
+by a fork of [Arduino-SerialCommand](https://github.com/p-v-o-s/Arduino-SerialCommand) - the 
+original version of that library was written by [Steven Cogswell](http://husks.wordpress.com) 
+(published May 23, 2011 in his blog post 
+["A Minimal Arduino Library for Processing Serial Commands"](http://husks.wordpress.com/2011/05/23/a-minimal-arduino-library-for-processing-serial-commands/)).
 
 The term "packet" here is used to refer to a variable length grouping of bytes that has a well-defined structure.  A 
 valid packet must start with a variable length byte sequence that is 
