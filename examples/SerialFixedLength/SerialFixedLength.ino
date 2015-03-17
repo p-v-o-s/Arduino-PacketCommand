@@ -28,7 +28,7 @@ void setup() {
   pCmd.addCommand((byte*) "\x43","INT",        handle_int);        // unpacks 4-bytes and converts to int32_t ("\x43" == "C")
   pCmd.addCommand((byte*) "\x44","FLOAT",      handle_float);      // unpacks 4-bytes and converts to float   ("\x44" == "D")
   pCmd.addCommand((byte*) "\x45","CHAR_ARRAY", handle_char_array); // transfers N bytes into char[]   ("\x44" == "E")
-  pCmd.addCommand((byte*) "\xFF\x01","INT_FLOAT", handle_int_float);        // unpacks 4-bytes and converts to float
+  pCmd.addCommand((byte*) "\xFF\x01","INT_FLOAT", handle_int_float);  // unpacks 4-bytes (int32), 4-bytes (float)
   pCmd.setDefaultHandler(unrecognized);      // Handler for command that isn't matched  (says "What?")
   //Serial.println("Ready");
 }
