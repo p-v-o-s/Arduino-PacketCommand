@@ -266,7 +266,7 @@ int PacketCommand::getPacketIndex(){
 
 PACKETCOMMAND_STATUS PacketCommand::setPacketIndex(int new_pkt_index){
   if (new_pkt_index >= 0 && 
-      new_pkt_index <  (int) _pkt_len){
+      new_pkt_index <  (int) _pkt_len + 1){
     _pkt_index = new_pkt_index;
     return SUCCESS;
   }
