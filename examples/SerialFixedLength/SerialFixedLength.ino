@@ -28,7 +28,7 @@ void setup() {
   pCmd.addCommand((byte*) "\x43","INT",        handle_int);        // unpacks 4-bytes and converts to int32_t ("\x43" == "C")
   pCmd.addCommand((byte*) "\x44","FLOAT",      handle_float);      // unpacks 4-bytes and converts to float   ("\x44" == "D")
   pCmd.addCommand((byte*) "\x45","CHAR_ARRAY", handle_char_array); // transfers N bytes into char[]   ("\x44" == "E")
-  pCmd.addCommand((byte*) "\xFF\x01","INT2",   handle_int);        // unpacks 4-bytes and converts to float
+  pCmd.addCommand((byte*) "\xFF\x01","INT_FLOAT", handle_int_float);        // unpacks 4-bytes and converts to float
   pCmd.setDefaultHandler(unrecognized);      // Handler for command that isn't matched  (says "What?")
   //Serial.println("Ready");
 }
@@ -95,6 +95,30 @@ void handle_int(PacketCommand this_pcmd) {
 void handle_float(PacketCommand this_pcmd) {
   PACKETCOMMAND_STATUS pcs;
   float myFloat = 0;
+  pcs = this_pcmd.unpack_float32((float32_t&) myFloat);
+  if (pcs == SUCCESS){
+    Serial.print(F("Got float: "));
+    Serial.println(myFloat);
+  }
+  else{
+    Serial.print(F("Error: this_pcmd.unpack_float32 returned status code: "));
+    Serial.println(pcs);
+  }
+}
+
+void handle_int_float(PacketCommand this_pcmd) {
+  PACKETCOMMAND_STATUS pcs;
+  int     myInt = 0;
+  float myFloat = 0;
+  pcs = this_pcmd.unpack_int32((int32_t&) myInt);
+  if (pcs == SUCCESS){
+    Serial.print(F("Got integer: "));
+    Serial.println(myInt);
+  }
+  else{
+    Serial.print(F("Error: this_pcmd.unpack_int32 returned status code: "));
+    Serial.println(pcs);
+  }
   pcs = this_pcmd.unpack_float32((float32_t&) myFloat);
   if (pcs == SUCCESS){
     Serial.print(F("Got float: "));
