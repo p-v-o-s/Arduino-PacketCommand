@@ -20,7 +20,7 @@ void setup() {
   digitalWrite(arduinoLED, LOW);    // default to LED off
 
   Serial.begin(9600);
-  delay(5000);
+  //delay(5000);
 
   // Setup callbacks for PacketCommand commands
   pCmd.addCommand((byte*) "\x41","LED.ON",     LED_on);            // Turns LED on   ("\x41" == "A")
@@ -28,8 +28,9 @@ void setup() {
   pCmd.addCommand((byte*) "\x43","INT",        handle_int);        // unpacks 4-bytes and converts to int32_t ("\x43" == "C")
   pCmd.addCommand((byte*) "\x44","FLOAT",      handle_float);      // unpacks 4-bytes and converts to float   ("\x44" == "D")
   pCmd.addCommand((byte*) "\x45","CHAR_ARRAY", handle_char_array); // transfers N bytes into char[]   ("\x44" == "E")
+  pCmd.addCommand((byte*) "\xFF\x01","INT2",   handle_int);        // unpacks 4-bytes and converts to float
   pCmd.setDefaultHandler(unrecognized);      // Handler for command that isn't matched  (says "What?")
-  Serial.println("Ready");
+  //Serial.println("Ready");
 }
 
 
@@ -52,7 +53,10 @@ void loop() {
       else { //successful match or default, call the handler
         Serial.print("Got Packet: ");
         for(int i=0; i < PACKET_SIZE; i++){
-            Serial.write(packetBuffer[i]);
+            if(packetBuffer[i] <= 0x0F){
+                Serial.print("0");
+            }
+            Serial.print(packetBuffer[i], HEX);
         }
         Serial.println();
         pCmd.dispatch();
