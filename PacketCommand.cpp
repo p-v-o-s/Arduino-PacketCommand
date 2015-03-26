@@ -21,12 +21,20 @@
 /**
  * Constructor makes sure some things are set.
  */
-PacketCommand::PacketCommand(int maxCommands)
+PacketCommand::PacketCommand(size_t maxCommands,
+                             size_t outputBufferSize
+                            )
   : _commandCount(0)
 {
   _maxCommands = maxCommands;
   //allocate memory for the command lookup and intialize with all null pointers
   _commandList = (CommandInfo*) calloc(maxCommands, sizeof(CommandInfo));
+  //allocate memory for the output buffer
+  _outputBufferSize = outputBufferSize;
+  _output_data  = (byte*) calloc(outputBufferSize, sizeof(byte));
+  _output_index = 0;
+  _output_len   = 0;
+  _write_callback = NULL;
 }
 
 /**
@@ -136,7 +144,7 @@ PACKETCOMMAND_STATUS PacketCommand::addCommand(const byte* type_id,
  * This sets up a handler to be called in the event that packet is send for
  * which a type ID cannot be matched
  */
-PACKETCOMMAND_STATUS PacketCommand::setDefaultHandler(void (*function)(PacketCommand)) {
+PACKETCOMMAND_STATUS PacketCommand::registerDefaultHandler(void (*function)(PacketCommand)) {
   if (function != NULL){
     _default_command.function = function;
     return SUCCESS;
@@ -146,6 +154,44 @@ PACKETCOMMAND_STATUS PacketCommand::setDefaultHandler(void (*function)(PacketCom
   }
 }
 
+/**
+ * This sets up a callback which can be used by a command handler to send a 
+ * packet back to the interface which dispatched it
+ */
+PACKETCOMMAND_STATUS PacketCommand::registerWriteCallback(void (*function)(byte* pkt, size_t len)){
+  if (function != NULL){
+    _write_callback = function;
+    return SUCCESS;
+  }
+  else{
+    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+  }
+}
+
+PACKETCOMMAND_STATUS PacketCommand::lookupCommandByName(const char* name){
+  _current_command = _default_command;
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.print(F("Searching for command named = "));
+  Serial.println(name);
+  #endif
+  for(int i=0; i <= _maxCommands; i++){
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.print(F("\tsearching command at index="));
+    Serial.println(i);
+    Serial.print(F("\ttype_id["));Serial.print(_input_index);Serial.print(F("]="));
+    Serial.println(_commandList[i].type_id[_input_index]);
+    #endif
+    if(strcmp(_commandList[i].name,name) == 0){
+       //a match has been found, so save it and stop
+       #ifdef PACKETCOMMAND_DEBUG
+       Serial.println(F("match found"));
+       #endif
+       _current_command = _commandList[i];
+       return SUCCESS;
+    }
+  }
+  return ERROR_NO_COMMAND_NAME_MATCH;
+}
 /**
  * This checks the characters in the buffer looking for a valid type_id prefix
  * string, which adheres to the following pseudocode rules:
@@ -165,18 +211,18 @@ PACKETCOMMAND_STATUS PacketCommand::setDefaultHandler(void (*function)(PacketCom
  * following binary fields; otherwise, the packet buffer position will remain at the byte that caused 
  * the error condition.
  */
-PACKETCOMMAND_STATUS PacketCommand::readBuffer(byte* pkt, size_t len) {
+PACKETCOMMAND_STATUS PacketCommand::readInputBuffer(byte* pkt, size_t len) {
   byte cur_byte = 0x00;
   _current_command = _default_command;
-  _pkt_data  = pkt;
-  _pkt_index = 0;
-  _pkt_len = len;
+  _input_data  = pkt;
+  _input_index = 0;
+  _input_len = len;
   //parse out type_id from header
   #ifdef PACKETCOMMAND_DEBUG
   Serial.println(F("In PacketCommand::readBuffer"));
   #endif
-  while(_pkt_index < (int) _pkt_len){
-    cur_byte = _pkt_data[_pkt_index];
+  while(_input_index < (int) _input_len){
+    cur_byte = _input_data[_input_index];
     #ifdef PACKETCOMMAND_DEBUG
     Serial.print(F("cur_byte="));Serial.println(cur_byte,HEX);
     #endif
@@ -184,19 +230,19 @@ PACKETCOMMAND_STATUS PacketCommand::readBuffer(byte* pkt, size_t len) {
       #ifdef PACKETCOMMAND_DEBUG
       Serial.println(F("valid 'type ID' format detected"));
       #endif
-      _current_command.type_id[_pkt_index] = cur_byte;
+      _current_command.type_id[_input_index] = cur_byte;
       break;
     }  
     else if (cur_byte == 0xFF){ //extended type ID, need to check the next byte
-      _current_command.type_id[_pkt_index] = 0xFF;
-      _pkt_index++;
-      if (_pkt_index >= MAX_TYPE_ID_LEN){
+      _current_command.type_id[_input_index] = 0xFF;
+      _input_index++;
+      if (_input_index >= MAX_TYPE_ID_LEN){
         #ifdef PACKETCOMMAND_DEBUG
         Serial.println(F("Error: invalid 'type ID' detected, exceeded maximum length"));
         #endif
         return ERROR_INVALID_TYPE_ID;
       }
-      else if (_pkt_index >= (int) _pkt_len ){  //0xFF cannot end the type_id
+      else if (_input_index >= (int) _input_len ){  //0xFF cannot end the type_id
         #ifdef PACKETCOMMAND_DEBUG
         Serial.println(F("Error: invalid packet detected, 'type ID' does not terminate before reaching end of packet"));
         #endif
@@ -220,16 +266,16 @@ PACKETCOMMAND_STATUS PacketCommand::readBuffer(byte* pkt, size_t len) {
     #ifdef PACKETCOMMAND_DEBUG
     Serial.print(F("Searching command at index="));
     Serial.println(i);
-    Serial.print(F("\ttype_id["));Serial.print(_pkt_index);Serial.print(F("]="));
-    Serial.println(_commandList[i].type_id[_pkt_index]);
+    Serial.print(F("\ttype_id["));Serial.print(_input_index);Serial.print(F("]="));
+    Serial.println(_commandList[i].type_id[_input_index]);
     #endif
-    if(_commandList[i].type_id[_pkt_index] == cur_byte){
+    if(_commandList[i].type_id[_input_index] == cur_byte){
        //a match has been found, so save it and stop
        #ifdef PACKETCOMMAND_DEBUG
        Serial.println(F("match found"));
        #endif
        _current_command = _commandList[i];
-       return movePacketIndex(1);  //increment to prepare for data unpacking
+       return moveInputBufferIndex(1);  //increment to prepare for data unpacking
     }
   }
   //no type ID has been matched
@@ -238,7 +284,7 @@ PACKETCOMMAND_STATUS PacketCommand::readBuffer(byte* pkt, size_t len) {
     Serial.println(F("Setting the default command handler"));
     #endif
     _current_command.function = _default_command.function;
-    return movePacketIndex(1);  //increment to prepare for data unpacking
+    return moveInputBufferIndex(1);  //increment to prepare for data unpacking
   }
   else{  //otherwise return and error condition
       #ifdef PACKETCOMMAND_DEBUG
@@ -272,14 +318,17 @@ PACKETCOMMAND_STATUS PacketCommand::dispatch() {
   }
 }
 
-int PacketCommand::getPacketIndex(){
-  return _pkt_index;
+/**
+ * Accessors and mutators for the input buffer
+*/
+int PacketCommand::getInputBufferIndex(){
+  return _input_index;
 }
 
-PACKETCOMMAND_STATUS PacketCommand::setPacketIndex(int new_pkt_index){
-  if (new_pkt_index >= 0 && 
-      new_pkt_index <  (int) _pkt_len + 1){
-    _pkt_index = new_pkt_index;
+PACKETCOMMAND_STATUS PacketCommand::setInputBufferIndex(int new_index){
+  if (new_index >= 0 && 
+      new_index <  (int) _input_len + 1){
+    _input_index = new_index;
     return SUCCESS;
   }
   else{
@@ -287,99 +336,225 @@ PACKETCOMMAND_STATUS PacketCommand::setPacketIndex(int new_pkt_index){
   }
 }
 
-PACKETCOMMAND_STATUS PacketCommand::movePacketIndex(int n){
-  return setPacketIndex(_pkt_index + n);
+PACKETCOMMAND_STATUS PacketCommand::moveInputBufferIndex(int n){
+  return setInputBufferIndex(_input_index + n);
 }
 
+
+/**
+ * Accessors and mutators for the output buffer
+*/
+int PacketCommand::getOutputBufferIndex(){
+  return _output_index;
+}
+
+PACKETCOMMAND_STATUS PacketCommand::setOutputBufferIndex(int new_index){
+  if (new_index >= 0 && 
+      new_index <  (int) _outputBufferSize + 1){
+    _output_index = new_index;
+    if(_output_index > _output_len){ //adjust output len up
+      _output_len = _output_index;
+    }
+    return SUCCESS;
+  }
+  else{
+    return ERROR_PACKET_INDEX_OUT_OF_BOUNDS;
+  }
+}
+
+PACKETCOMMAND_STATUS PacketCommand::moveOutputBufferIndex(int n){
+  return setOutputBufferIndex(_output_index + n);
+}
 /******************************************************************************/
-// Byte field unpacking methods
+// Byte field unpacking methods from input buffer
 /******************************************************************************/
 //bytes and chars
 PACKETCOMMAND_STATUS PacketCommand::unpack_byte(byte& varByRef){
-  varByRef = *((byte*)(_pkt_data+_pkt_index));
-  return movePacketIndex(sizeof(byte));
+  varByRef = *((byte*)(_input_data+_input_index));
+  return moveInputBufferIndex(sizeof(byte));
 }
 
 PACKETCOMMAND_STATUS PacketCommand::unpack_byte_array(byte* buffer, int len){
   for(int i=0; i < len; i++){
-    buffer[i] = _pkt_data[_pkt_index + i];
+    buffer[i] = _input_data[_input_index + i];
   }
-  return movePacketIndex(len*sizeof(byte));
+  return moveInputBufferIndex(len*sizeof(byte)); //FIXME should be len-1?
 }
 
 PACKETCOMMAND_STATUS PacketCommand::unpack_char(char& varByRef){
-  varByRef = *((char*)(_pkt_data+_pkt_index));
-  return movePacketIndex(sizeof(char));
+  varByRef = *((char*)(_input_data+_input_index));
+  return moveInputBufferIndex(sizeof(char));
 }
 
 PACKETCOMMAND_STATUS PacketCommand::unpack_char_array(char* buffer, int len){
   for(int i=0; i < len; i++){
-    buffer[i] = _pkt_data[_pkt_index + i];
+    buffer[i] = _input_data[_input_index + i];
   }
-  return movePacketIndex((len-1)*sizeof(char));
+  return moveInputBufferIndex(len*sizeof(char)); //FIXME should be len-1?
 }
 
 //stdint types
 PACKETCOMMAND_STATUS PacketCommand::unpack_int8(int8_t& varByRef){
-  varByRef = *((int8_t*)(_pkt_data+_pkt_index));
-  return movePacketIndex(sizeof(int8_t));
+  varByRef = *((int8_t*)(_input_data+_input_index));
+  return moveInputBufferIndex(sizeof(int8_t));
 }
 
 PACKETCOMMAND_STATUS PacketCommand::unpack_uint8(uint8_t& varByRef){
-  varByRef = *((uint8_t*)(_pkt_data+_pkt_index));
-  return movePacketIndex(sizeof(uint8_t));
+  varByRef = *((uint8_t*)(_input_data+_input_index));
+  return moveInputBufferIndex(sizeof(uint8_t));
 }
 
 PACKETCOMMAND_STATUS PacketCommand::unpack_int16(int16_t& varByRef){
-  varByRef = *((int16_t*)(_pkt_data+_pkt_index));
-  return movePacketIndex(sizeof(int16_t));
+  varByRef = *((int16_t*)(_input_data+_input_index));
+  return moveInputBufferIndex(sizeof(int16_t));
 }
 
 PACKETCOMMAND_STATUS PacketCommand::unpack_uint16(uint16_t& varByRef){
-  varByRef = *((uint16_t*)(_pkt_data+_pkt_index));
-  return movePacketIndex(sizeof(uint16_t));
+  varByRef = *((uint16_t*)(_input_data+_input_index));
+  return moveInputBufferIndex(sizeof(uint16_t));
 }
 
 PACKETCOMMAND_STATUS PacketCommand::unpack_int32(int32_t& varByRef){
-  varByRef = *((int32_t*)(_pkt_data+_pkt_index));
-  return movePacketIndex(sizeof(int32_t));
+  varByRef = *((int32_t*)(_input_data+_input_index));
+  return moveInputBufferIndex(sizeof(int32_t));
 }
 
 PACKETCOMMAND_STATUS PacketCommand::unpack_uint32(uint32_t& varByRef){
-  varByRef = *((uint32_t*)(_pkt_data+_pkt_index));
-  return movePacketIndex(sizeof(uint32_t));
+  varByRef = *((uint32_t*)(_input_data+_input_index));
+  return moveInputBufferIndex(sizeof(uint32_t));
 }
 
 PACKETCOMMAND_STATUS PacketCommand::unpack_int64(int64_t& varByRef){
-  varByRef = *((int64_t*)(_pkt_data+_pkt_index));
-  return movePacketIndex(sizeof(int16_t));
+  varByRef = *((int64_t*)(_input_data+_input_index));
+  return moveInputBufferIndex(sizeof(int64_t));
 }
 
 PACKETCOMMAND_STATUS PacketCommand::unpack_uint64(uint64_t& varByRef){
-  varByRef = *((uint64_t*)(_pkt_data+_pkt_index));
-  return movePacketIndex(sizeof(uint64_t));
+  varByRef = *((uint64_t*)(_input_data+_input_index));
+  return moveInputBufferIndex(sizeof(uint64_t));
 }
 
 //floating point
 
 PACKETCOMMAND_STATUS PacketCommand::unpack_float(float& varByRef){
-  varByRef = *((float*)(_pkt_data+_pkt_index));
-  return movePacketIndex(sizeof(float));
+  varByRef = *((float*)(_input_data+_input_index));
+  return moveInputBufferIndex(sizeof(float));
 }
 
 PACKETCOMMAND_STATUS PacketCommand::unpack_double(double& varByRef){
-  varByRef = *((double*)(_pkt_data+_pkt_index));
-  return movePacketIndex(sizeof(double));
+  varByRef = *((double*)(_input_data+_input_index));
+  return moveInputBufferIndex(sizeof(double));
 }
 
 PACKETCOMMAND_STATUS PacketCommand::unpack_float32(float32_t& varByRef){
-  varByRef = *((float32_t*)(_pkt_data+_pkt_index));
-  return movePacketIndex(sizeof(float32_t));
+  varByRef = *((float32_t*)(_input_data+_input_index));
+  return moveInputBufferIndex(sizeof(float32_t));
 }
 
 PACKETCOMMAND_STATUS PacketCommand::unpack_float64(float64_t& varByRef){
-  varByRef = *((float64_t*)(_pkt_data+_pkt_index));
-  return movePacketIndex(sizeof(float64_t));
+  varByRef = *((float64_t*)(_input_data+_input_index));
+  return moveInputBufferIndex(sizeof(float64_t));
+}
+
+/******************************************************************************/
+// Byte field packing methods into output buffer
+/******************************************************************************/
+//bytes and chars
+PACKETCOMMAND_STATUS PacketCommand::pack_byte(byte value){
+  memcpy( (_output_data + _output_index), &value, sizeof(byte));
+  return moveOutputBufferIndex(sizeof(byte));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::pack_byte_array(byte* buffer, int len){
+  memcpy( (_output_data + _output_index), buffer, len*sizeof(byte)); //FIXME should be len-1?
+  return moveOutputBufferIndex(len*sizeof(byte));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::pack_char(char value){
+  memcpy( (_output_data + _output_index), &value, sizeof(char));
+  return moveOutputBufferIndex(sizeof(char));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::pack_char_array(char* buffer, int len){
+  memcpy( (_output_data + _output_index), buffer, len*sizeof(char));
+  return moveOutputBufferIndex(len*sizeof(char)); //FIXME should be len-1?
+}
+
+//stdint types
+PACKETCOMMAND_STATUS PacketCommand::pack_int8(int8_t value){
+  memcpy( (_output_data + _output_index), &value, sizeof(int8_t));
+  return moveOutputBufferIndex(sizeof(int8_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::pack_uint8(uint8_t value){
+  memcpy( (_output_data + _output_index), &value, sizeof(uint8_t));
+  return moveOutputBufferIndex(sizeof(uint8_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::pack_int16(int16_t value){
+  memcpy( (_output_data + _output_index), &value, sizeof(int16_t));
+  return moveOutputBufferIndex(sizeof(int16_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::pack_uint16(uint16_t value){
+  memcpy( (_output_data + _output_index), &value, sizeof(uint16_t));
+  return moveOutputBufferIndex(sizeof(uint16_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::pack_int32(int32_t value){
+  memcpy( (_output_data + _output_index), &value, sizeof(int32_t));
+  return moveOutputBufferIndex(sizeof(int32_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::pack_uint32(uint32_t value){
+  memcpy( (_output_data + _output_index), &value, sizeof(uint32_t));
+  return moveOutputBufferIndex(sizeof(uint32_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::pack_int64(int64_t value){
+  memcpy( (_output_data + _output_index), &value, sizeof(int64_t));
+  return moveOutputBufferIndex(sizeof(int64_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::pack_uint64(uint64_t value){
+  memcpy( (_output_data + _output_index), &value, sizeof(uint64_t));
+  return moveOutputBufferIndex(sizeof(uint64_t));
+}
+
+//floating point
+
+PACKETCOMMAND_STATUS PacketCommand::pack_float(float value){
+  memcpy( (_output_data + _output_index), &value, sizeof(float_t));
+  return moveOutputBufferIndex(sizeof(float));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::pack_double(double value){
+  memcpy( (_output_data + _output_index), &value, sizeof(double));
+  return moveOutputBufferIndex(sizeof(double));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::pack_float32(float32_t value){
+  memcpy( (_output_data + _output_index), &value, sizeof(float32_t));
+  return moveOutputBufferIndex(sizeof(float32_t));
+}
+
+PACKETCOMMAND_STATUS PacketCommand::pack_float64(float64_t value){
+  memcpy( (_output_data + _output_index), &value, sizeof(float64_t));
+  return moveOutputBufferIndex(sizeof(float64_t));
+}
+
+// Use the '_write_callback' to send return packet if register
+PACKETCOMMAND_STATUS PacketCommand::writeOutputBuffer(){
+  if (_write_callback != NULL){
+    (*_write_callback)(_output_data, _output_len);
+    return SUCCESS;
+  }
+  else{
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("Error: tried write using a NULL write callback function pointer"));
+  #endif
+    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+  }
 }
 
 
