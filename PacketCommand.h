@@ -104,6 +104,8 @@ class PacketCommand{
     PACKETCOMMAND_STATUS unpack_double(      double& varByRef);
     PACKETCOMMAND_STATUS unpack_float32(  float32_t& varByRef);
     PACKETCOMMAND_STATUS unpack_float64(  float64_t& varByRef);
+    //Methods for constructing an output
+    PACKETCOMMAND_STATUS setupOutputCommandByName(char* name);
     //packing chars and bytes
     PACKETCOMMAND_STATUS pack_byte(byte value);
     PACKETCOMMAND_STATUS pack_byte_array(byte* buffer, int len);
@@ -123,8 +125,8 @@ class PacketCommand{
     PACKETCOMMAND_STATUS pack_double(      double value);
     PACKETCOMMAND_STATUS pack_float32(  float32_t value);
     PACKETCOMMAND_STATUS pack_float64(  float64_t value);
-    // Use the '_write_callback' to send return packet if register
-    PACKETCOMMAND_STATUS writeOutputBuffer();
+    // Use the '_write_callback' to send return packet if registered
+    PACKETCOMMAND_STATUS sendOutputCommand();
 
 
   private:                                

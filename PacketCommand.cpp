@@ -459,6 +459,24 @@ PACKETCOMMAND_STATUS PacketCommand::unpack_float64(float64_t& varByRef){
 /******************************************************************************/
 // Byte field packing methods into output buffer
 /******************************************************************************/
+PACKETCOMMAND_STATUS PacketCommand::setupOutputCommandByName(char* name){
+  PACKETCOMMAND_STATUS pcs;
+  byte cur_byte; 
+  pcs = lookupCommandByName(name);  //sets _current_command on SUCCESS
+  //reset output buffer state
+  _output_index = 0;
+  _output_len   = 0;
+  if(pcs == SUCCESS){
+    for(int i=0;i<MAX_TYPE_ID_LEN;i++){
+        cur_byte = _current_command.type_id[i];
+        if(cur_byte == 0x00){ break;}
+        pack_byte(cur_byte);
+    }
+    return SUCCESS;
+  }
+  else{return pcs;}
+}
+
 //bytes and chars
 PACKETCOMMAND_STATUS PacketCommand::pack_byte(byte value){
   memcpy( (_output_data + _output_index), &value, sizeof(byte));
@@ -544,7 +562,7 @@ PACKETCOMMAND_STATUS PacketCommand::pack_float64(float64_t value){
 }
 
 // Use the '_write_callback' to send return packet if register
-PACKETCOMMAND_STATUS PacketCommand::writeOutputBuffer(){
+PACKETCOMMAND_STATUS PacketCommand::sendOutputCommand(){
   if (_write_callback != NULL){
     (*_write_callback)(_output_data, _output_len);
     return SUCCESS;
