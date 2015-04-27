@@ -459,7 +459,7 @@ PACKETCOMMAND_STATUS PacketCommand::unpack_float64(float64_t& varByRef){
 /******************************************************************************/
 // Byte field packing methods into output buffer
 /******************************************************************************/
-PACKETCOMMAND_STATUS PacketCommand::setupOutputCommandByName(const char* name){
+PACKETCOMMAND_STATUS PacketCommand::setupOutputCommandByName(char* name){
   PACKETCOMMAND_STATUS pcs;
   byte cur_byte; 
   pcs = lookupCommandByName(name);  //sets _current_command on SUCCESS
