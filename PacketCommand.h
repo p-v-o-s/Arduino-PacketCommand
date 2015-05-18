@@ -123,8 +123,7 @@ class PacketCommand{
     STATUS pack_float32(  float32_t value);
     STATUS pack_float64(  float64_t value);
 
-
-  private:                                
+  private:
     CommandInfo *_commandList;    //array to hold command entries
     CommandInfo _current_command; //command ready to dispatch
     CommandInfo _default_command; //called when a packet's Type ID is not recognized

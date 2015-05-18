@@ -475,7 +475,7 @@ PacketCommand::STATUS PacketCommand::unpack_float64(float64_t& varByRef){
 /******************************************************************************/
 PacketCommand::STATUS PacketCommand::setupOutputCommandByName(const char* name){
   STATUS pcs;
-  byte cur_byte; 
+  byte cur_byte;
   pcs = lookupCommandByName(name);  //sets _current_command on SUCCESS
   //reset output buffer state
   _output_index = 0;
@@ -575,24 +575,3 @@ PacketCommand::STATUS PacketCommand::pack_float64(float64_t value){
   return moveOutputBufferIndex(sizeof(float64_t));
 }
 
-
-
-
-///**
-// * Retrieve the next token ("word" or "argument") from the command buffer.
-// * Returns NULL if no more tokens exist.
-// */
-//char *PacketCommand::next() {
-//  return strtok_r(NULL, _delim, &_last);
-//}
-
-/*
- * forward all writes to the encapsulated "log" Stream object
- */
-//size_t PacketCommand::write(uint8_t val) {
-//  size_t bytes_out = 0;
-//  if (_log != NULL){ 
-//    bytes_out = _log.write(val);
-//  }
-//  return bytes_out;
-//}
