@@ -84,6 +84,7 @@ class PacketCommand{
     size_t               getInputLen(){return _input_len;};
     PACKETCOMMAND_STATUS setInputBufferIndex(int new_index);
     PACKETCOMMAND_STATUS moveInputBufferIndex(int n);
+    byte*                getOutputBuffer(){return _output_data;};
     int                  getOutputBufferIndex();
     PACKETCOMMAND_STATUS setOutputBufferIndex(int new_index);
     PACKETCOMMAND_STATUS moveOutputBufferIndex(int n);
