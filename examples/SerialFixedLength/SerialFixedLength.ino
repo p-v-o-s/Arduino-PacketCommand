@@ -57,7 +57,7 @@ void setup() {
 
 
 void loop() {
-  PACKETCOMMAND_STATUS pcs;
+  PacketCommand::STATUS pcs;
   char inChar;
   //handle incoming packets
   while (Serial.available() > 0) {
@@ -67,8 +67,8 @@ void loop() {
     inputBuffer[inputBuffer_index] = inChar;
     inputBuffer_index++;
     if (inputBuffer_index >= PACKET_SIZE){             //we have a whole packet
-      pcs = pCmd.readInputBuffer(inputBuffer, PACKET_SIZE); // send the packet to the PacketCommand parser
-      if (pcs != SUCCESS){
+      pcs = pCmd.recv(inputBuffer, PACKET_SIZE); // send the packet to the PacketCommand parser
+      if (pcs != PacketCommand::SUCCESS){
         Serial.print(F("Error: pCmd.readBuffer returned status code: "));
         Serial.println(pcs);
       }
@@ -87,10 +87,6 @@ void loop() {
 void LED_on(PacketCommand this_pCmd) {
   Serial.println(F("LED on"));
   digitalWrite(arduinoLED, HIGH);
-  this_pCmd.pack_byte((byte) 'Q');
-  Serial.print(F("_output_index="));
-  Serial.println(this_pCmd.getOutputBufferIndex());
-  this_pCmd.writeOutputBuffer();
 }
 
 void LED_off(PacketCommand this_pCmd) {
@@ -99,10 +95,10 @@ void LED_off(PacketCommand this_pCmd) {
 }
 
 void handle_int(PacketCommand this_pCmd) {
-  PACKETCOMMAND_STATUS pcs;
+  PacketCommand::STATUS pcs;
   int myInt = 0;
   pcs = this_pCmd.unpack_int32((int32_t&) myInt);
-  if (pcs == SUCCESS){
+  if (pcs == PacketCommand::SUCCESS){
     Serial.print(F("Got integer: "));
     Serial.println(myInt);
   }
@@ -113,10 +109,10 @@ void handle_int(PacketCommand this_pCmd) {
 }
 
 void handle_float(PacketCommand this_pCmd) {
-  PACKETCOMMAND_STATUS pcs;
+  PacketCommand::STATUS pcs;
   float myFloat = 0;
   pcs = this_pCmd.unpack_float32((float32_t&) myFloat);
-  if (pcs == SUCCESS){
+  if (pcs == PacketCommand::SUCCESS){
     Serial.print(F("Got float: "));
     Serial.println(myFloat);
   }
@@ -127,11 +123,11 @@ void handle_float(PacketCommand this_pCmd) {
 }
 
 void handle_int_float(PacketCommand this_pCmd) {
-  PACKETCOMMAND_STATUS pcs;
+  PacketCommand::STATUS pcs;
   int     myInt = 0;
   float myFloat = 0;
   pcs = this_pCmd.unpack_int32((int32_t&) myInt);
-  if (pcs == SUCCESS){
+  if (pcs == PacketCommand::SUCCESS){
     Serial.print(F("Got integer: "));
     Serial.println(myInt);
   }
@@ -140,7 +136,7 @@ void handle_int_float(PacketCommand this_pCmd) {
     Serial.println(pcs);
   }
   pcs = this_pCmd.unpack_float32((float32_t&) myFloat);
-  if (pcs == SUCCESS){
+  if (pcs == PacketCommand::SUCCESS){
     Serial.print(F("Got float: "));
     Serial.println(myFloat);
   }
@@ -151,11 +147,11 @@ void handle_int_float(PacketCommand this_pCmd) {
 }
 
 void handle_char_array(PacketCommand this_pCmd) {
-  PACKETCOMMAND_STATUS pcs;
+  PacketCommand::STATUS pcs;
   const int len = 9;
   char buffer[len + 1] = {0}; //remember to leave at least one element for zero termination of cstrings
   pcs = this_pCmd.unpack_char_array(buffer, len);
-  if (pcs == SUCCESS){
+  if (pcs == PacketCommand::SUCCESS){
     Serial.print(F("Got cstring: "));
     Serial.println(buffer);
   }
@@ -172,7 +168,7 @@ void handle_write_back_stuff(PacketCommand this_pCmd) {
   this_pCmd.pack_int32(987654321);
   this_pCmd.pack_float32(3.141592);
   this_pCmd.pack_char_array("hello",5);
-  this_pCmd.writeOutputBuffer();
+  this_pCmd.send();
 }
 
 // This gets set as the default handler, and gets called when no other command matches.
@@ -180,7 +176,7 @@ void unrecognized(PacketCommand this_pCmd) {
   PacketCommand::CommandInfo current_command;
   Serial.print(F("Did not recognize \""));
   Serial.print(F("type_id="));
-  for(int i=0; i < MAX_TYPE_ID_LEN; i++){
+  for(int i=0; i < PacketCommand::MAX_TYPE_ID_LEN; i++){
     if( current_command.type_id[i] != 0x00){
         Serial.print(current_command.type_id[i], HEX);
     }
