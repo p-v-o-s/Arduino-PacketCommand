@@ -76,9 +76,12 @@ class PacketCommand{
     STATUS recv(byte* pkt, size_t len);                // Read packet header and locate a matching registered handler function
     STATUS send();                                     // Use the '_write_callback' to send return packet from Output Buffer if registered
     STATUS dispatch();
-    int                  getInputBufferIndex();
-    size_t               getInputLen(){return _input_len;};
-    byte*                getOutputBuffer(){return _output_data;};
+    
+    int    getInputBufferIndex();
+    size_t getInputLen(){return _input_len;};
+    byte*  getInputBuffer(){return _input_data;};
+    
+    byte*  getOutputBuffer(){return _output_data;};
     STATUS setInputBufferIndex(int new_index);
     STATUS moveInputBufferIndex(int n);
     int                  getOutputBufferIndex();
