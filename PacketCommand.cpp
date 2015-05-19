@@ -46,8 +46,8 @@ PacketCommand::PacketCommand(size_t maxCommands,
  * has no special meaning in the current the implmentation.
  */
 PacketCommand::STATUS PacketCommand::addCommand(const byte* type_id,
-                                               const char* name,
-                                               void (*function)(PacketCommand)) {
+                                                const char* name,
+                                                void (*function)(PacketCommand)) {
   byte cur_byte = 0x00;
   int type_id_len = strlen((char*) type_id);
   struct CommandInfo new_command;
@@ -56,6 +56,9 @@ PacketCommand::STATUS PacketCommand::addCommand(const byte* type_id,
   Serial.print(_commandCount);
   Serial.print(F("): "));
   Serial.println(name);
+  Serial.print("'");
+  Serial.print((char *) type_id);
+  Serial.println("'");
   Serial.println(type_id_len);
   #endif
   if (_commandCount >= _maxCommands){
@@ -78,6 +81,8 @@ PacketCommand::STATUS PacketCommand::addCommand(const byte* type_id,
       //test if the type ID rules are followed
       cur_byte = type_id[i];
       #ifdef PACKETCOMMAND_DEBUG
+      Serial.print(F("i="));
+      Serial.println(i);
       Serial.print(F("checking type ID byte: "));
       Serial.println(cur_byte, HEX);
       #endif
@@ -116,6 +121,7 @@ PacketCommand::STATUS PacketCommand::addCommand(const byte* type_id,
             #endif
             return ERROR_INVALID_TYPE_ID;
           }
+          break;
       }
       //end testing bytes of type_id
     }

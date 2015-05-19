@@ -67,12 +67,12 @@ class PacketCommand{
                   size_t outputBufferSize = OUTPUTBUFFERSIZE_DEFAULT
                  );
     STATUS addCommand(const byte* type_id,
-                                    const char* name, 
-                                    void(*function)(PacketCommand));                     // Add a command to the processing dictionary.
+                      const char* name, 
+                      void(*function)(PacketCommand));                     // Add a command to the processing dictionary.
     STATUS registerDefaultHandler(void (*function)(PacketCommand));        // A handler to call when no valid command received.
     STATUS registerWriteCallback(void (*function)(byte* pkt, size_t len)); // A callback which processes the output
     STATUS lookupCommandByName(const char* name);                        //lookup and set current command by name
-    CommandInfo          getCurrentCommand();
+    CommandInfo getCurrentCommand();
     STATUS recv(byte* pkt, size_t len);                // Read packet header and locate a matching registered handler function
     STATUS send();                                     // Use the '_write_callback' to send return packet from Output Buffer if registered
     STATUS dispatch();
@@ -80,11 +80,10 @@ class PacketCommand{
     int    getInputBufferIndex();
     size_t getInputLen(){return _input_len;};
     byte*  getInputBuffer(){return _input_data;};
-    
     byte*  getOutputBuffer(){return _output_data;};
     STATUS setInputBufferIndex(int new_index);
     STATUS moveInputBufferIndex(int n);
-    int                  getOutputBufferIndex();
+    int    getOutputBufferIndex();
     STATUS setOutputBufferIndex(int new_index);
     STATUS moveOutputBufferIndex(int n);
     //unpacking chars and bytes
