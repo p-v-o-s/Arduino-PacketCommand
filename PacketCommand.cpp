@@ -22,6 +22,7 @@
  * Constructor makes sure some things are set.
  */
 PacketCommand::PacketCommand(size_t maxCommands,
+                             size_t inputBufferSize,
                              size_t outputBufferSize
                             )
   : _commandCount(0)
@@ -29,12 +30,22 @@ PacketCommand::PacketCommand(size_t maxCommands,
   _maxCommands = maxCommands;
   //allocate memory for the command lookup and intialize with all null pointers
   _commandList = (CommandInfo*) calloc(maxCommands, sizeof(CommandInfo));
+  //allocate memory for the input buffer
+  _inputBufferSize = inputBufferSize;
+  _input_buffer   = (byte*) calloc(inputBufferSize, sizeof(byte));
+  _input_data_ptr = _input_buffer;
+  _input_index = 0;
+  _input_len   = 0;
   //allocate memory for the output buffer
   _outputBufferSize = outputBufferSize;
-  _output_data  = (byte*) calloc(outputBufferSize, sizeof(byte));
+  _output_buffer   = (byte*) calloc(outputBufferSize, sizeof(byte));
+  _output_data_ptr = _output_buffer;
   _output_index = 0;
   _output_len   = 0;
+  _begin_dialog_callback = NULL;
   _write_callback = NULL;
+  _get_reply_callback = NULL;
+  _end_dialog_callback = NULL;
 }
 
 /**
@@ -161,6 +172,19 @@ PacketCommand::STATUS PacketCommand::registerDefaultHandler(void (*function)(Pac
 }
 
 /**
+ * 
+ */
+PacketCommand::STATUS PacketCommand::registerBeginDialogCallback(void (*function)(void)){
+  if (function != NULL){
+    _begin_dialog_callback = function;
+    return SUCCESS;
+  }
+  else{
+    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+  }
+}
+
+/**
  * This sets up a callback which can be used by a command handler to send a 
  * packet back to the interface which dispatched it
  */
@@ -173,6 +197,33 @@ PacketCommand::STATUS PacketCommand::registerWriteCallback(void (*function)(byte
     return ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
 }
+
+/**
+ * 
+ */
+PacketCommand::STATUS PacketCommand::registerGetReplyCallback(void (*function)(byte* buf, size_t len)){
+  if (function != NULL){
+    _get_reply_callback = function;
+    return SUCCESS;
+  }
+  else{
+    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+  }
+}
+
+/**
+ * 
+ */
+PacketCommand::STATUS PacketCommand::registerEndDialogCallback(void (*function)(void)){
+  if (function != NULL){
+    _end_dialog_callback = function;
+    return SUCCESS;
+  }
+  else{
+    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+  }
+}
+
 
 PacketCommand::STATUS PacketCommand::lookupCommandByName(const char* name){
   _current_command = _default_command;
@@ -220,7 +271,7 @@ PacketCommand::STATUS PacketCommand::lookupCommandByName(const char* name){
 PacketCommand::STATUS PacketCommand::recv(byte* pkt, size_t len) {
   byte cur_byte = 0x00;
   _current_command = _default_command;
-  _input_data  = pkt;
+  _input_data_ptr  = pkt;
   _input_index = 0;
   _input_len = len;
   //parse out type_id from header
@@ -228,7 +279,7 @@ PacketCommand::STATUS PacketCommand::recv(byte* pkt, size_t len) {
   Serial.println(F("In PacketCommand::readBuffer"));
   #endif
   while(_input_index < (int) _input_len){
-    cur_byte = _input_data[_input_index];
+    cur_byte = _input_data_ptr[_input_index];
     #ifdef PACKETCOMMAND_DEBUG
     Serial.print(F("cur_byte="));Serial.println(cur_byte,HEX);
     #endif
@@ -300,18 +351,77 @@ PacketCommand::STATUS PacketCommand::recv(byte* pkt, size_t len) {
   }
 }
 
+// Begin the dialog by prepareing input and output buffers and calling back to client
+PacketCommand::STATUS PacketCommand::beginDialog(){
+  _input_data_ptr = _input_buffer;
+  _input_index = 0;
+  _output_data_ptr = _output_buffer;
+  _output_index = 0;
+  //call the begin dialog callback if it exists
+  if (_begin_dialog_callback != NULL){
+    (*_begin_dialog_callback)();
+  }
+  return SUCCESS;
+}
+
 // Use the '_write_callback' to send return packet if register
 PacketCommand::STATUS PacketCommand::send(){
   if (_write_callback != NULL){
-    (*_write_callback)(_output_data, _output_len);
+//    //call the begin dialog callback if it exists
+//    if (_begin_dialog_callback != NULL){
+//      (*_begin_dialog_callback)();
+//    }
+    //call the write callback
+    (*_write_callback)(_output_data_ptr, _output_len);
+//    //call the end dialog callback if it exists
+//    if (_end_dialog_callback != NULL){
+//      (*_end_dialog_callback)();
+//    }
+    return SUCCESS;
+  }
+  else{
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("Error: tried write using a NULL write callback function pointer"));
+    #endif
+    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+  }
+}
+
+// Use the '_write_callback' to send return packet if register
+PacketCommand::STATUS PacketCommand::exchange(){
+  if ((_write_callback != NULL) && (_get_reply_callback != NULL)){
+//    //call the begin dialog callback if it exists
+//    if (_begin_dialog_callback != NULL){
+//      (*_begin_dialog_callback)();
+//    }
+    //call the write callback
+    (*_write_callback)(_output_data_ptr, _output_len);
+    //prepare input buffer and call the get reply callback
+    _input_index = 0;
+    _input_len   = 0;
+    _input_data_ptr  = _input_buffer;
+    (*_get_reply_callback)(_input_data_ptr, _inputBufferSize);
+    //call the end dialog callback if it exists
+//    if (_end_dialog_callback != NULL){
+//      (*_end_dialog_callback)();
+//    }
     return SUCCESS;
   }
   else{
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("Error: tried write using a NULL write callback function pointer"));
+  Serial.println(F("Error: tried write using a NULL 'write' or 'get_reply' callback function pointer"));
   #endif
     return ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
+}
+
+// Begin the dialog by prepareing input and output buffers and calling back to client
+PacketCommand::STATUS PacketCommand::endDialog(){
+  //call the begin dialog callback if it exists
+  if (_end_dialog_callback != NULL){
+    (*_end_dialog_callback)();
+  }
+  return SUCCESS;
 }
 
 /**
@@ -390,89 +500,89 @@ PacketCommand::STATUS PacketCommand::moveOutputBufferIndex(int n){
 /******************************************************************************/
 //bytes and chars
 PacketCommand::STATUS PacketCommand::unpack_byte(byte& varByRef){
-  varByRef = *((byte*)(_input_data+_input_index));
+  varByRef = *((byte*)(_input_data_ptr+_input_index));
   return moveInputBufferIndex(sizeof(byte));
 }
 
 PacketCommand::STATUS PacketCommand::unpack_byte_array(byte* buffer, int len){
   for(int i=0; i < len; i++){
-    buffer[i] = _input_data[_input_index + i];
+    buffer[i] = _input_data_ptr[_input_index + i];
   }
   return moveInputBufferIndex(len*sizeof(byte)); //FIXME should be len-1?
 }
 
 PacketCommand::STATUS PacketCommand::unpack_char(char& varByRef){
-  varByRef = *((char*)(_input_data+_input_index));
+  varByRef = *((char*)(_input_data_ptr+_input_index));
   return moveInputBufferIndex(sizeof(char));
 }
 
 PacketCommand::STATUS PacketCommand::unpack_char_array(char* buffer, int len){
   for(int i=0; i < len; i++){
-    buffer[i] = _input_data[_input_index + i];
+    buffer[i] = _input_data_ptr[_input_index + i];
   }
   return moveInputBufferIndex(len*sizeof(char)); //FIXME should be len-1?
 }
 
 //stdint types
 PacketCommand::STATUS PacketCommand::unpack_int8(int8_t& varByRef){
-  varByRef = *((int8_t*)(_input_data+_input_index));
+  varByRef = *((int8_t*)(_input_data_ptr+_input_index));
   return moveInputBufferIndex(sizeof(int8_t));
 }
 
 PacketCommand::STATUS PacketCommand::unpack_uint8(uint8_t& varByRef){
-  varByRef = *((uint8_t*)(_input_data+_input_index));
+  varByRef = *((uint8_t*)(_input_data_ptr+_input_index));
   return moveInputBufferIndex(sizeof(uint8_t));
 }
 
 PacketCommand::STATUS PacketCommand::unpack_int16(int16_t& varByRef){
-  varByRef = *((int16_t*)(_input_data+_input_index));
+  varByRef = *((int16_t*)(_input_data_ptr+_input_index));
   return moveInputBufferIndex(sizeof(int16_t));
 }
 
 PacketCommand::STATUS PacketCommand::unpack_uint16(uint16_t& varByRef){
-  varByRef = *((uint16_t*)(_input_data+_input_index));
+  varByRef = *((uint16_t*)(_input_data_ptr+_input_index));
   return moveInputBufferIndex(sizeof(uint16_t));
 }
 
 PacketCommand::STATUS PacketCommand::unpack_int32(int32_t& varByRef){
-  varByRef = *((int32_t*)(_input_data+_input_index));
+  varByRef = *((int32_t*)(_input_data_ptr+_input_index));
   return moveInputBufferIndex(sizeof(int32_t));
 }
 
 PacketCommand::STATUS PacketCommand::unpack_uint32(uint32_t& varByRef){
-  varByRef = *((uint32_t*)(_input_data+_input_index));
+  varByRef = *((uint32_t*)(_input_data_ptr+_input_index));
   return moveInputBufferIndex(sizeof(uint32_t));
 }
 
 PacketCommand::STATUS PacketCommand::unpack_int64(int64_t& varByRef){
-  varByRef = *((int64_t*)(_input_data+_input_index));
+  varByRef = *((int64_t*)(_input_data_ptr+_input_index));
   return moveInputBufferIndex(sizeof(int64_t));
 }
 
 PacketCommand::STATUS PacketCommand::unpack_uint64(uint64_t& varByRef){
-  varByRef = *((uint64_t*)(_input_data+_input_index));
+  varByRef = *((uint64_t*)(_input_data_ptr+_input_index));
   return moveInputBufferIndex(sizeof(uint64_t));
 }
 
 //floating point
 
 PacketCommand::STATUS PacketCommand::unpack_float(float& varByRef){
-  varByRef = *((float*)(_input_data+_input_index));
+  varByRef = *((float*)(_input_data_ptr+_input_index));
   return moveInputBufferIndex(sizeof(float));
 }
 
 PacketCommand::STATUS PacketCommand::unpack_double(double& varByRef){
-  varByRef = *((double*)(_input_data+_input_index));
+  varByRef = *((double*)(_input_data_ptr+_input_index));
   return moveInputBufferIndex(sizeof(double));
 }
 
 PacketCommand::STATUS PacketCommand::unpack_float32(float32_t& varByRef){
-  varByRef = *((float32_t*)(_input_data+_input_index));
+  varByRef = *((float32_t*)(_input_data_ptr+_input_index));
   return moveInputBufferIndex(sizeof(float32_t));
 }
 
 PacketCommand::STATUS PacketCommand::unpack_float64(float64_t& varByRef){
-  varByRef = *((float64_t*)(_input_data+_input_index));
+  varByRef = *((float64_t*)(_input_data_ptr+_input_index));
   return moveInputBufferIndex(sizeof(float64_t));
 }
 
@@ -499,85 +609,85 @@ PacketCommand::STATUS PacketCommand::setupOutputCommandByName(const char* name){
 
 //bytes and chars
 PacketCommand::STATUS PacketCommand::pack_byte(byte value){
-  memcpy( (_output_data + _output_index), &value, sizeof(byte));
+  memcpy( (_output_data_ptr + _output_index), &value, sizeof(byte));
   return moveOutputBufferIndex(sizeof(byte));
 }
 
 PacketCommand::STATUS PacketCommand::pack_byte_array(byte* buffer, int len){
-  memcpy( (_output_data + _output_index), buffer, len*sizeof(byte)); //FIXME should be len-1?
+  memcpy( (_output_data_ptr + _output_index), buffer, len*sizeof(byte)); //FIXME should be len-1?
   return moveOutputBufferIndex(len*sizeof(byte));
 }
 
 PacketCommand::STATUS PacketCommand::pack_char(char value){
-  memcpy( (_output_data + _output_index), &value, sizeof(char));
+  memcpy( (_output_data_ptr + _output_index), &value, sizeof(char));
   return moveOutputBufferIndex(sizeof(char));
 }
 
 PacketCommand::STATUS PacketCommand::pack_char_array(char* buffer, int len){
-  memcpy( (_output_data + _output_index), buffer, len*sizeof(char));
+  memcpy( (_output_data_ptr + _output_index), buffer, len*sizeof(char));
   return moveOutputBufferIndex(len*sizeof(char)); //FIXME should be len-1?
 }
 
 //stdint types
 PacketCommand::STATUS PacketCommand::pack_int8(int8_t value){
-  memcpy( (_output_data + _output_index), &value, sizeof(int8_t));
+  memcpy( (_output_data_ptr + _output_index), &value, sizeof(int8_t));
   return moveOutputBufferIndex(sizeof(int8_t));
 }
 
 PacketCommand::STATUS PacketCommand::pack_uint8(uint8_t value){
-  memcpy( (_output_data + _output_index), &value, sizeof(uint8_t));
+  memcpy( (_output_data_ptr + _output_index), &value, sizeof(uint8_t));
   return moveOutputBufferIndex(sizeof(uint8_t));
 }
 
 PacketCommand::STATUS PacketCommand::pack_int16(int16_t value){
-  memcpy( (_output_data + _output_index), &value, sizeof(int16_t));
+  memcpy( (_output_data_ptr + _output_index), &value, sizeof(int16_t));
   return moveOutputBufferIndex(sizeof(int16_t));
 }
 
 PacketCommand::STATUS PacketCommand::pack_uint16(uint16_t value){
-  memcpy( (_output_data + _output_index), &value, sizeof(uint16_t));
+  memcpy( (_output_data_ptr + _output_index), &value, sizeof(uint16_t));
   return moveOutputBufferIndex(sizeof(uint16_t));
 }
 
 PacketCommand::STATUS PacketCommand::pack_int32(int32_t value){
-  memcpy( (_output_data + _output_index), &value, sizeof(int32_t));
+  memcpy( (_output_data_ptr + _output_index), &value, sizeof(int32_t));
   return moveOutputBufferIndex(sizeof(int32_t));
 }
 
 PacketCommand::STATUS PacketCommand::pack_uint32(uint32_t value){
-  memcpy( (_output_data + _output_index), &value, sizeof(uint32_t));
+  memcpy( (_output_data_ptr + _output_index), &value, sizeof(uint32_t));
   return moveOutputBufferIndex(sizeof(uint32_t));
 }
 
 PacketCommand::STATUS PacketCommand::pack_int64(int64_t value){
-  memcpy( (_output_data + _output_index), &value, sizeof(int64_t));
+  memcpy( (_output_data_ptr + _output_index), &value, sizeof(int64_t));
   return moveOutputBufferIndex(sizeof(int64_t));
 }
 
 PacketCommand::STATUS PacketCommand::pack_uint64(uint64_t value){
-  memcpy( (_output_data + _output_index), &value, sizeof(uint64_t));
+  memcpy( (_output_data_ptr + _output_index), &value, sizeof(uint64_t));
   return moveOutputBufferIndex(sizeof(uint64_t));
 }
 
 //floating point
 
 PacketCommand::STATUS PacketCommand::pack_float(float value){
-  memcpy( (_output_data + _output_index), &value, sizeof(float));
+  memcpy( (_output_data_ptr + _output_index), &value, sizeof(float));
   return moveOutputBufferIndex(sizeof(float));
 }
 
 PacketCommand::STATUS PacketCommand::pack_double(double value){
-  memcpy( (_output_data + _output_index), &value, sizeof(double));
+  memcpy( (_output_data_ptr + _output_index), &value, sizeof(double));
   return moveOutputBufferIndex(sizeof(double));
 }
 
 PacketCommand::STATUS PacketCommand::pack_float32(float32_t value){
-  memcpy( (_output_data + _output_index), &value, sizeof(float32_t));
+  memcpy( (_output_data_ptr + _output_index), &value, sizeof(float32_t));
   return moveOutputBufferIndex(sizeof(float32_t));
 }
 
 PacketCommand::STATUS PacketCommand::pack_float64(float64_t value){
-  memcpy( (_output_data + _output_index), &value, sizeof(float64_t));
+  memcpy( (_output_data_ptr + _output_index), &value, sizeof(float64_t));
   return moveOutputBufferIndex(sizeof(float64_t));
 }
 

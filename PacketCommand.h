@@ -44,6 +44,7 @@ class PacketCommand{
     // Constants
     static const int MAXCOMMANDS_DEFAULT = 10;
     static const int MAX_TYPE_ID_LEN = 4;
+    static const int INPUTBUFFERSIZE_DEFAULT = 64;
     static const int OUTPUTBUFFERSIZE_DEFAULT = 64;
     // Status and Error  Codes
     typedef enum StatusCode {
@@ -64,23 +65,33 @@ class PacketCommand{
     };
     // Constructor
     PacketCommand(size_t maxCommands      = MAXCOMMANDS_DEFAULT,
+                  size_t inputBufferSize = INPUTBUFFERSIZE_DEFAULT,
                   size_t outputBufferSize = OUTPUTBUFFERSIZE_DEFAULT
                  );
     STATUS addCommand(const byte* type_id,
                       const char* name, 
-                      void(*function)(PacketCommand));                     // Add a command to the processing dictionary.
-    STATUS registerDefaultHandler(void (*function)(PacketCommand));        // A handler to call when no valid command received.
-    STATUS registerWriteCallback(void (*function)(byte* pkt, size_t len)); // A callback which processes the output
+                      void(*function)(PacketCommand));                          // Add a command to the processing dictionary.
+    STATUS registerDefaultHandler(void (*function)(PacketCommand));             // A handler to call when no valid command received.
+    //callbacks for IO steps
+    STATUS registerBeginDialogCallback(void (*function)(void));                 // A callback which starts a dialog
+    STATUS registerWriteCallback(void (*function)(byte* pkt, size_t len));      // A callback which writes output to the interface
+    STATUS registerGetReplyCallback(void (*function)(byte* buf, size_t len));   // A callback which waits for a reply
+    STATUS registerEndDialogCallback(void (*function)(void));                   // A callback which ends a dialog
+    //--
     STATUS lookupCommandByName(const char* name);                        //lookup and set current command by name
     CommandInfo getCurrentCommand();
     STATUS recv(byte* pkt, size_t len);                // Read packet header and locate a matching registered handler function
-    STATUS send();                                     // Use the '_write_callback' to send return packet from Output Buffer if registered
     STATUS dispatch();
+    STATUS beginDialog();
+    STATUS send();                                     // Use the '_write_callback' to send OutputBuffer
+    STATUS exchange();                                 // Use the '_write_callback' to send OutputBuffer and wait for reply which gets put in InputBuffer
+    STATUS endDialog();
+    
     
     int    getInputBufferIndex();
     size_t getInputLen(){return _input_len;};
-    byte*  getInputBuffer(){return _input_data;};
-    byte*  getOutputBuffer(){return _output_data;};
+    byte*  getInputBuffer(){return _input_buffer;};
+    byte*  getOutputBuffer(){return _output_data_ptr;};
     STATUS setInputBufferIndex(int new_index);
     STATUS moveInputBufferIndex(int n);
     int    getOutputBufferIndex();
@@ -134,16 +145,23 @@ class PacketCommand{
     int     _commandCount;
     int     _maxCommands;
     //track state of input buffer
-    byte*   _input_data;
-    int     _input_index;
-    size_t  _input_len;
+    size_t _inputBufferSize;
+    byte*  _input_buffer;        //this will be a fixed buffer location
+    byte*  _input_data_ptr;      //this can point to _input_buffer or another user buffer
+    int    _input_index;
+    size_t _input_len;
     //track state of output buffer
-    size_t  _outputBufferSize;
-    byte*   _output_data;
-    int     _output_index;
-    size_t  _output_len;
-    //use this callback to send out a packet
-    void (*_write_callback)(byte* pkt, size_t len);                             //handler callback function
+    size_t _outputBufferSize;
+    byte*  _output_buffer;       //this will be a fixed buffer location
+    byte*  _output_data_ptr;     //this can point to _output_buffer or another user buffer
+    int    _output_index;
+    size_t _output_len;
+    //cached callbacks
+    void (*_begin_dialog_callback)(void);
+    void (*_write_callback)(byte* pkt, size_t len);
+    void (*_get_reply_callback)(byte* buf, size_t len);
+    void (*_end_dialog_callback)(void);
+    
 
 };
 
