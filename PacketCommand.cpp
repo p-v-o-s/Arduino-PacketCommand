@@ -514,7 +514,7 @@ PacketCommand::STATUS PacketCommand::setupOutputCommandByName(const char* name){
 // Use the '_send_callback' to send return packet
 PacketCommand::STATUS PacketCommand::send(){
   if (_send_callback != NULL){
-    //call the write callback
+    //call the send callback
     (*_send_callback)(_output_buffer, _output_len);
     return SUCCESS;
   }
@@ -528,12 +528,45 @@ PacketCommand::STATUS PacketCommand::send(){
 
 // Begin the dialog by prepareing input and output buffers and calling back to client
 PacketCommand::STATUS PacketCommand::endOutput(){
-  //call the begin dialog callback if it exists
+  //call if it exists
   if (_end_output_callback != NULL){
     (*_end_output_callback)();
   }
   return SUCCESS;
 }
+
+
+// Use the '_reply_send_callback' to send a quick reply
+PacketCommand::STATUS PacketCommand::reply_send(){
+  if (_reply_send_callback != NULL){
+    //call the send callback
+    (*_reply_send_callback)(_output_buffer, _output_len);
+    return SUCCESS;
+  }
+  else{
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("Error: tried to send using a NULL send callback function pointer"));
+    #endif
+    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+  }
+}
+
+
+// Use the '_reply_send_callback' to send a quick reply
+PacketCommand::STATUS PacketCommand::reply_recv(){
+  if (_reply_recv_callback != NULL){
+    //call the send callback
+    (*_reply_recv_callback)(_input_buffer, _input_len);
+    return SUCCESS;
+  }
+  else{
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("Error: tried to receive using a NULL recv callback function pointer"));
+    #endif
+    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+  }
+}
+
 
 /**
  * Accessors and mutators for the input buffer

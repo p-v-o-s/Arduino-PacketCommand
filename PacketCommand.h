@@ -93,22 +93,25 @@ class PacketCommand{
     STATUS recv();                // Use the '_read_callback' to put data into _input_buffer
     STATUS matchCommand();        // Read the packet header from the input buffer and locate a matching registered handler function
     STATUS dispatchCommand();     // Call the current Command
-    STATUS reply_send();
     STATUS endInput();
     STATUS beginOutput();
     STATUS send();                // Use the '_write_callback' to send _output_buffer
-    STATUS reply_recv();
     STATUS endOutput();
+    STATUS reply_send();
+    STATUS reply_recv();
     
     int    getInputBufferIndex();
     size_t getInputLen(){return _input_len;};
     byte*  getInputBuffer(){return _input_buffer;};
-    byte*  getOutputBuffer(){return _output_buffer;};
     STATUS setInputBufferIndex(int new_index);
     STATUS moveInputBufferIndex(int n);
+    STATUS resetInputBuffer(){_input_index=0;_input_len=0;};
     int    getOutputBufferIndex();
+    size_t getOutputLen(){return _output_len;};
+    byte*  getOutputBuffer(){return _output_buffer;};
     STATUS setOutputBufferIndex(int new_index);
     STATUS moveOutputBufferIndex(int n);
+    STATUS resetOutputBuffer(){_output_index=0;_output_len=0;};
     //unpacking chars and bytes
     STATUS unpack_byte(byte& varByRef);
     STATUS unpack_byte_array(byte* buffer, int len);
@@ -168,13 +171,13 @@ class PacketCommand{
     size_t _output_len;
     //cached callbacks
     void (*_begin_output_callback)(void);
-    bool (*_recv_callback)(byte* inbuf, size_t& lenByRef);
-    void (*_reply_send_callback)(byte* outbuf, size_t len);
+    void (*_send_callback)(byte* outbuf, size_t len);
     void (*_end_output_callback)(void);
     void (*_begin_input_callback)(void);
-    void (*_send_callback)(byte* outbuf, size_t len);
-    bool (*_reply_recv_callback)(byte* inbuf, size_t& lenByRef);
+    bool (*_recv_callback)(byte* inbuf, size_t& lenByRef);
     void (*_end_input_callback)(void);
+    void (*_reply_send_callback)(byte* outbuf, size_t len);
+    bool (*_reply_recv_callback)(byte* inbuf, size_t& lenByRef);
 
 };
 
