@@ -24,7 +24,7 @@ void print_hex(byte* pkt, size_t len){
 //------------------------------------------------------------------------------
 PacketCommand pCmd(MAX_COMMANDS);         // The demo PacketCommand object, initialize with any Stream object
 
-bool serial_recv_callback(PacketCommand this_pCmd){
+bool serial_recv_callback(PacketCommand& this_pCmd){
   static byte inputBuffer[PACKET_SIZE];  //a place to put incoming data, for example from a Serial stream or from a packet radio
   static int  inputBuffer_index = 0;
   //handle incoming packets
@@ -43,7 +43,7 @@ bool serial_recv_callback(PacketCommand this_pCmd){
   return false;
 }
 
-void serial_send_callback(PacketCommand this_pCmd){
+void serial_send_callback(PacketCommand& this_pCmd){
   //simulate a packet output by printing it in a hexidecimal format
   byte* outbuf = this_pCmd.getOutputBuffer();
   size_t   len = this_pCmd.getOutputLen();
@@ -85,17 +85,17 @@ void loop() {
   //do other stuff
 }
 
-void LED_on(PacketCommand this_pCmd) {
+void LED_on(PacketCommand& this_pCmd) {
   Serial.println(F("LED on"));
   digitalWrite(arduinoLED, HIGH);
 }
 
-void LED_off(PacketCommand this_pCmd) {
+void LED_off(PacketCommand& this_pCmd) {
   Serial.println(F("LED off"));
   digitalWrite(arduinoLED, LOW);
 }
 
-void handle_int(PacketCommand this_pCmd) {
+void handle_int(PacketCommand& this_pCmd) {
   PacketCommand::STATUS pcs;
   int myInt = 0;
   pcs = this_pCmd.unpack_int32((int32_t&) myInt);
@@ -109,7 +109,7 @@ void handle_int(PacketCommand this_pCmd) {
   }
 }
 
-void handle_float(PacketCommand this_pCmd) {
+void handle_float(PacketCommand& this_pCmd) {
   PacketCommand::STATUS pcs;
   float myFloat = 0;
   pcs = this_pCmd.unpack_float32((float32_t&) myFloat);
@@ -123,7 +123,7 @@ void handle_float(PacketCommand this_pCmd) {
   }
 }
 
-void handle_int_float(PacketCommand this_pCmd) {
+void handle_int_float(PacketCommand& this_pCmd) {
   PacketCommand::STATUS pcs;
   int     myInt = 0;
   float myFloat = 0;
@@ -147,7 +147,7 @@ void handle_int_float(PacketCommand this_pCmd) {
   }
 }
 
-void handle_char_array(PacketCommand this_pCmd) {
+void handle_char_array(PacketCommand& this_pCmd) {
   PacketCommand::STATUS pcs;
   const int len = 9;
   char buffer[len + 1] = {0}; //remember to leave at least one element for zero termination of cstrings
@@ -162,7 +162,7 @@ void handle_char_array(PacketCommand this_pCmd) {
   }
 }
 
-void handle_write_back_stuff(PacketCommand this_pCmd) {
+void handle_write_back_stuff(PacketCommand& this_pCmd) {
   this_pCmd.lookupCommandByName("LED.ON");
   PacketCommand::CommandInfo cmd = this_pCmd.getCurrentCommand(); //should be the LED.ON command type_id="\x41"
   this_pCmd.pack_byte(cmd.type_id[0]);
@@ -173,7 +173,7 @@ void handle_write_back_stuff(PacketCommand this_pCmd) {
 }
 
 // This gets set as the default handler, and gets called when no other command matches.
-void unrecognized(PacketCommand this_pCmd) {
+void unrecognized(PacketCommand& this_pCmd) {
   PacketCommand::CommandInfo current_command;
   Serial.print(F("Did not recognize \""));
   Serial.print(F("type_id="));

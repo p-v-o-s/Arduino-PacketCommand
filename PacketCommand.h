@@ -31,7 +31,7 @@
 #include <stdint.h>
 
 // Uncomment the next line to run the library in debug mode (verbose messages)
-#define PACKETCOMMAND_DEBUG
+//#define PACKETCOMMAND_DEBUG
 
 typedef float  float32_t;
 typedef double float64_t;
@@ -63,7 +63,7 @@ class PacketCommand{
     struct CommandInfo {
       byte type_id[MAX_TYPE_ID_LEN];     //limited size type ID must be respected!
       const char* name;
-      void (*function)(PacketCommand);     //handler callback function
+      void (*function)(PacketCommand&);     //handler callback function
     };
     // Constructor
     PacketCommand(size_t maxCommands      = MAXCOMMANDS_DEFAULT,
@@ -72,19 +72,19 @@ class PacketCommand{
                  );
     STATUS addCommand(const byte* type_id,
                       const char* name, 
-                      void(*function)(PacketCommand));                          // Add a command to the processing dictionary.
-    STATUS registerDefaultHandler(void (*function)(PacketCommand));             // A handler to call when no valid command received.
+                      void(*function)(PacketCommand&));                          // Add a command to the processing dictionary.
+    STATUS registerDefaultHandler(void (*function)(PacketCommand&));             // A handler to call when no valid command received.
     //registering callbacks for IO steps
     //input
-    STATUS registerBeginInputCallback(void (*function)(PacketCommand));
-    STATUS registerRecvCallback(bool (*function)(PacketCommand));
-    STATUS registerReplySendCallback(void (*function)(PacketCommand));
-    STATUS registerEndInputCallback(void (*function)(PacketCommand));
+    STATUS registerBeginInputCallback(void (*function)(PacketCommand&));
+    STATUS registerRecvCallback(bool (*function)(PacketCommand&));
+    STATUS registerReplySendCallback(void (*function)(PacketCommand&));
+    STATUS registerEndInputCallback(void (*function)(PacketCommand&));
     //output
-    STATUS registerBeginOutputCallback(void (*function)(PacketCommand));
-    STATUS registerSendCallback(void (*function)(PacketCommand));     // A callback which writes output to the interface
-    STATUS registerReplyRecvCallback(bool (*function)(PacketCommand));
-    STATUS registerEndOutputCallback(void (*function)(PacketCommand));
+    STATUS registerBeginOutputCallback(void (*function)(PacketCommand&));
+    STATUS registerSendCallback(void (*function)(PacketCommand&));     // A callback which writes output to the interface
+    STATUS registerReplyRecvCallback(bool (*function)(PacketCommand&));
+    STATUS registerEndOutputCallback(void (*function)(PacketCommand&));
     
     STATUS processInput();  //receive input, match command, and dispatch
     
@@ -102,7 +102,7 @@ class PacketCommand{
     STATUS reply_send();
     STATUS reply_recv();
     
-    void   assignInputBuffer(byte* buff, size_t len);
+    STATUS assignInputBuffer(byte* buff, size_t len);
     byte*  getInputBuffer();
     int    getInputBufferIndex();
     size_t getInputLen(){return _input_len;};
@@ -176,14 +176,14 @@ class PacketCommand{
     int    _output_index;
     size_t _output_len;
     //cached callbacks
-    void (*_begin_output_callback)(PacketCommand this_pCmd);
-    void (*_send_callback)(PacketCommand this_pCmd);
-    void (*_end_output_callback)(PacketCommand this_pCmd);
-    void (*_begin_input_callback)(PacketCommand this_pCmd);
-    bool (*_recv_callback)(PacketCommand this_pCmd);
-    void (*_end_input_callback)(PacketCommand this_pCmd);
-    void (*_reply_send_callback)(PacketCommand this_pCmd);
-    bool (*_reply_recv_callback)(PacketCommand this_pCmd);
+    void (*_begin_output_callback)(PacketCommand& this_pCmd);
+    void (*_send_callback)(PacketCommand& this_pCmd);
+    void (*_end_output_callback)(PacketCommand& this_pCmd);
+    void (*_begin_input_callback)(PacketCommand& this_pCmd);
+    bool (*_recv_callback)(PacketCommand& this_pCmd);
+    void (*_end_input_callback)(PacketCommand& this_pCmd);
+    void (*_reply_send_callback)(PacketCommand& this_pCmd);
+    bool (*_reply_recv_callback)(PacketCommand& this_pCmd);
 
 };
 

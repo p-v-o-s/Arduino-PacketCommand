@@ -65,7 +65,7 @@ PacketCommand::PacketCommand(size_t maxCommands,
  */
 PacketCommand::STATUS PacketCommand::addCommand(const byte* type_id,
                                                 const char* name,
-                                                void (*function)(PacketCommand)) {
+                                                void (*function)(PacketCommand&)) {
   byte cur_byte = 0x00;
   int type_id_len = strlen((char*) type_id);
   struct CommandInfo new_command;
@@ -168,7 +168,7 @@ PacketCommand::STATUS PacketCommand::addCommand(const byte* type_id,
  * This sets up a handler to be called in the event that packet is send for
  * which a type ID cannot be matched
  */
-PacketCommand::STATUS PacketCommand::registerDefaultHandler(void (*function)(PacketCommand)) {
+PacketCommand::STATUS PacketCommand::registerDefaultHandler(void (*function)(PacketCommand&)) {
   if (function != NULL){
     _default_command.function = function;
     return SUCCESS;
@@ -181,7 +181,7 @@ PacketCommand::STATUS PacketCommand::registerDefaultHandler(void (*function)(Pac
 /**
  * 
  */
-PacketCommand::STATUS PacketCommand::registerBeginInputCallback(void (*function)(PacketCommand)){
+PacketCommand::STATUS PacketCommand::registerBeginInputCallback(void (*function)(PacketCommand&)){
   if (function != NULL){
     _begin_input_callback = function;
     return SUCCESS;
@@ -195,7 +195,7 @@ PacketCommand::STATUS PacketCommand::registerBeginInputCallback(void (*function)
  * This sets up a callback which can be used by a command handler to read a 
  * packet into its input buffer
  */
-PacketCommand::STATUS PacketCommand::registerRecvCallback(bool (*function)(PacketCommand)){
+PacketCommand::STATUS PacketCommand::registerRecvCallback(bool (*function)(PacketCommand&)){
   if (function != NULL){
     _recv_callback = function;
     return SUCCESS;
@@ -209,7 +209,7 @@ PacketCommand::STATUS PacketCommand::registerRecvCallback(bool (*function)(Packe
  * This sets up a callback which can be used by a command handler to send a 
  * packet from its output buffer
  */
-PacketCommand::STATUS PacketCommand::registerReplySendCallback(void (*function)(PacketCommand)){
+PacketCommand::STATUS PacketCommand::registerReplySendCallback(void (*function)(PacketCommand&)){
   if (function != NULL){
     _reply_send_callback = function;
     return SUCCESS;
@@ -222,7 +222,7 @@ PacketCommand::STATUS PacketCommand::registerReplySendCallback(void (*function)(
 /**
  * 
  */
-PacketCommand::STATUS PacketCommand::registerEndInputCallback(void (*function)(PacketCommand)){
+PacketCommand::STATUS PacketCommand::registerEndInputCallback(void (*function)(PacketCommand&)){
   if (function != NULL){
     _end_input_callback = function;
     return SUCCESS;
@@ -235,7 +235,7 @@ PacketCommand::STATUS PacketCommand::registerEndInputCallback(void (*function)(P
 /**
  * 
  */
-PacketCommand::STATUS PacketCommand::registerBeginOutputCallback(void (*function)(PacketCommand)){
+PacketCommand::STATUS PacketCommand::registerBeginOutputCallback(void (*function)(PacketCommand&)){
   if (function != NULL){
     _begin_output_callback = function;
     return SUCCESS;
@@ -249,7 +249,7 @@ PacketCommand::STATUS PacketCommand::registerBeginOutputCallback(void (*function
  * This sets up a callback which can be used by a command handler to send a 
  * packet from its output buffer
  */
-PacketCommand::STATUS PacketCommand::registerSendCallback(void (*function)(PacketCommand)){
+PacketCommand::STATUS PacketCommand::registerSendCallback(void (*function)(PacketCommand&)){
   if (function != NULL){
     _send_callback = function;
     return SUCCESS;
@@ -262,7 +262,7 @@ PacketCommand::STATUS PacketCommand::registerSendCallback(void (*function)(Packe
 /**
  * 
  */
-PacketCommand::STATUS PacketCommand::registerReplyRecvCallback(bool (*function)(PacketCommand)){
+PacketCommand::STATUS PacketCommand::registerReplyRecvCallback(bool (*function)(PacketCommand&)){
   if (function != NULL){
     _reply_recv_callback = function;
     return SUCCESS;
@@ -275,7 +275,7 @@ PacketCommand::STATUS PacketCommand::registerReplyRecvCallback(bool (*function)(
 /**
  * 
  */
-PacketCommand::STATUS PacketCommand::registerEndOutputCallback(void (*function)(PacketCommand)){
+PacketCommand::STATUS PacketCommand::registerEndOutputCallback(void (*function)(PacketCommand&)){
   if (function != NULL){
     _end_output_callback = function;
     return SUCCESS;
@@ -286,26 +286,47 @@ PacketCommand::STATUS PacketCommand::registerEndOutputCallback(void (*function)(
 }
 
 PacketCommand::STATUS PacketCommand::processInput(){
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("In PacketCommand::processInput"));
+  Serial.print(F("\t_input_index="));Serial.println(_input_index);
+  Serial.print(F("\t_input_len="));Serial.println(_input_len);
+  #endif
   beginInput();
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("(processInput)-after calling beginInput()"));
+  Serial.print(F("\t_input_index="));Serial.println(_input_index);
+  Serial.print(F("\t_input_len="));Serial.println(_input_len);
+  #endif
   STATUS pcs;
   pcs = recv();  //_read_callback will be used to fetch data into input buffer
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("(processInput)-after calling recv()"));
+  Serial.print(F("\t_input_index="));Serial.println(_input_index);
+  Serial.print(F("\t_input_len="));Serial.println(_input_len);
+  #endif
   if (pcs == SUCCESS){  //a packet was received
     pcs = matchCommand();
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("(processInput)-after calling matchCommand()"));
+    Serial.print(F("\t_input_index="));Serial.println(_input_index);
+    Serial.print(F("\t_input_len="));Serial.println(_input_len);
+   #endif
     if (pcs == SUCCESS){  //a command was matched
       #ifdef PACKETCOMMAND_DEBUG
-      Serial.print(F("# \tmatched command: "));
+      Serial.print(F("(processInput)-matched command: "));
       CommandInfo cmd = getCurrentCommand();
       Serial.println(cmd.name);
       #endif
     }
     else if (pcs == ERROR_NO_TYPE_ID_MATCH){  //valid ID but no command was matched
       #ifdef PACKETCOMMAND_DEBUG
-      Serial.println(F("# \tno matched command"));
+      Serial.println(F("(processInput)-no matched command"));
       #endif
     }
     else{
-      //Serial.print(F("### Error: pCmd.matchCommand returned status code: "));
-      //Serial.println(pcs);
+      Serial.print(F("### Error: pCmd.matchCommand returned status code: "));
+      Serial.println(pcs);
+      return pcs;
     }
     //dispatch to handler or default if no match
     dispatchCommand();
@@ -352,6 +373,11 @@ PacketCommand::STATUS PacketCommand::lookupCommandByName(const char* name){
 
 // Begin an input phase by prepareing input buffer and calling back to client
 PacketCommand::STATUS PacketCommand::beginInput(){
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("In PacketCommand::beginInput()"));
+  Serial.print(F("\t_input_index="));Serial.println(_input_index);
+  Serial.print(F("\t_input_len="));Serial.println(_input_len);
+  #endif
   _input_index = 0;
   _input_len = 0;
   //call if it exists
@@ -363,9 +389,14 @@ PacketCommand::STATUS PacketCommand::beginInput(){
 
 PacketCommand::STATUS PacketCommand::recv() {
   bool gotPacket;
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("In PacketCommand::recv()"));
+  Serial.print(F("\t_input_index="));Serial.println(_input_index);
+  Serial.print(F("\t_input_len="));Serial.println(_input_len);
+  #endif
   //call the read callback which should load data into _input_buffer and set len
   if (_recv_callback != NULL){
-    gotPacket = (*_recv_callback)(*this); //these args get passed by reference
+    gotPacket = (*_recv_callback)(*this);
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
@@ -373,23 +404,12 @@ PacketCommand::STATUS PacketCommand::recv() {
     #endif
     return ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
-//  if (gotPacket){ //we have a packet
-//    //check the input length before setting
-//    if (_input_len + lenByRef <= _inputBufferSize){
-//      _input_len += lenByRef;
-//    }
-//    else{
-//      #ifdef PACKETCOMMAND_DEBUG
-//      Serial.println(F("Error: tried to receive data that would overrun input buffer"));
-//      #endif
-//      return ERROR_INPUT_BUFFER_OVERRUN;
-//    }
-//    return SUCCESS;
-//  }
-//  else{  //we have no packet
-//    return NO_PACKET_RECEIVED;
-//  }
-    return SUCCESS;  
+  if (gotPacket){ //we have a packet
+    return SUCCESS;
+  }
+  else{  //we have no packet
+    return NO_PACKET_RECEIVED;
+  }
 }
 
 /**
@@ -416,7 +436,9 @@ PacketCommand::STATUS PacketCommand::matchCommand(){
   _current_command = _default_command;
   //parse out type_id from header
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("In PacketCommand::readBuffer"));
+  Serial.println(F("In PacketCommand::matchCommand"));
+  Serial.print(F("\t_input_index="));Serial.println(_input_index);
+  Serial.print(F("\t_input_len="));Serial.println(_input_len);
   #endif
   while(_input_index < (int) _input_len){
     cur_byte = _input_buffer[_input_index];
@@ -616,9 +638,32 @@ PacketCommand::STATUS PacketCommand::reply_recv(){
  * Accessors and mutators for the input buffer
 */
 
-void  PacketCommand::assignInputBuffer(byte* buff, size_t len){
+PacketCommand::STATUS PacketCommand::assignInputBuffer(byte* buff, size_t len){
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("In PacketCommand::assignInputBuffer"));
+  Serial.print(F("\tlen="));Serial.println(len);
+  Serial.print(F("\t_inputBufferSize="));Serial.println(_inputBufferSize);
+  Serial.print(F("\t_input_index="));Serial.println(_input_index);
+  Serial.print(F("\t_input_len="));Serial.println(_input_len);
+  #endif
   _input_buffer = buff;
-  _input_len = len;
+  //check the input length before setting
+  if (len <= _inputBufferSize){
+    _input_len = len;
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("(assignInputBuffer) after setting _input_len"));
+    Serial.print(F("\t_input_index="));Serial.println(_input_index);
+    Serial.print(F("\t_input_len="));Serial.println(_input_len);
+    #endif
+    return SUCCESS;
+  }
+  else{
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("Error: tried to receive data that would overrun input buffer"));
+    #endif
+    _input_len = _inputBufferSize; //set to safe value
+    return ERROR_INPUT_BUFFER_OVERRUN;
+  }
 }
 
 void  PacketCommand::allocateInputBuffer(size_t len){
