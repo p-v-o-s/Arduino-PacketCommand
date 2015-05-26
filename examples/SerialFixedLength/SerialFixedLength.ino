@@ -23,16 +23,38 @@ void print_hex(byte* pkt, size_t len){
 
 //------------------------------------------------------------------------------
 PacketCommand pCmd(MAX_COMMANDS);         // The demo PacketCommand object, initialize with any Stream object
-void write_packet(byte* pkt, size_t len){
-  //simulate a packet output by printing it in a hexidecimal format
-  Serial.print("Sent Packet: ");
-  print_hex(pkt,len);
+
+bool serial_recv_callback(PacketCommand this_pCmd){
+  static byte inputBuffer[PACKET_SIZE];  //a place to put incoming data, for example from a Serial stream or from a packet radio
+  static int  inputBuffer_index = 0;
+  //handle incoming packets
+  while (Serial.available() > 0) {
+    char inChar = Serial.read();   // Read single available character and place into buffer, there may be more waiting
+    //Serial.print("Got char: ");
+    //Serial.println(inChar);
+    inputBuffer[inputBuffer_index] = inChar;
+    inputBuffer_index++;
+    if (inputBuffer_index >= PACKET_SIZE){ //we have a whole packet
+      this_pCmd.assignInputBuffer(inputBuffer, PACKET_SIZE);
+      inputBuffer_index = 0;
+      return true;
+    }
+  }
+  return false;
 }
+
+void serial_send_callback(PacketCommand this_pCmd){
+  //simulate a packet output by printing it in a hexidecimal format
+  byte* outbuf = this_pCmd.getOutputBuffer();
+  size_t   len = this_pCmd.getOutputLen();
+  Serial.print("Sent Packet: ");
+  print_hex(outbuf,len);
+}
+
 
 //------------------------------------------------------------------------------
 
-byte inputBuffer[PACKET_SIZE];  //a place to put incoming data, for example from a Serial stream or from a packet radio
-int  inputBuffer_index = 0;
+
 //------------------------------------------------------------------------------
 
 void setup() {
@@ -51,36 +73,15 @@ void setup() {
   pCmd.addCommand((byte*) "\xFF\x01","INT_FLOAT", handle_int_float);  // unpacks 4-bytes (int32), 4-bytes (float)
   pCmd.addCommand((byte*) "\x46","WRITE_BACK_STUFF", handle_write_back_stuff); //("\x46" == "F")
   pCmd.registerDefaultHandler(unrecognized);                          // Handler for command that isn't matched  (says "What?")
-  pCmd.registerWriteCallback(write_packet);
+  pCmd.registerRecvCallback(serial_recv_callback);
+  pCmd.registerSendCallback(serial_send_callback);
   //Serial.println("Ready");
 }
 
 
 void loop() {
   PacketCommand::STATUS pcs;
-  char inChar;
-  //handle incoming packets
-  while (Serial.available() > 0) {
-    inChar = Serial.read();   // Read single available character and place into buffer, there may be more waiting
-    //Serial.print("Got char: ");
-    //Serial.println(inChar);
-    inputBuffer[inputBuffer_index] = inChar;
-    inputBuffer_index++;
-    if (inputBuffer_index >= PACKET_SIZE){             //we have a whole packet
-      pcs = pCmd.recv(inputBuffer, PACKET_SIZE); // send the packet to the PacketCommand parser
-      if (pcs != PacketCommand::SUCCESS){
-        Serial.print(F("Error: pCmd.readBuffer returned status code: "));
-        Serial.println(pcs);
-      }
-      else { //successful match or default, call the handler
-        Serial.print("Got Packet: ");
-        print_hex(inputBuffer, PACKET_SIZE);
-        pCmd.dispatch();
-      }
-      //reset packet buffer index
-      inputBuffer_index = 0;
-    }
-  }
+  
   //do other stuff
 }
 

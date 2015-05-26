@@ -44,7 +44,7 @@ class PacketCommand{
     // Constants
     static const int MAXCOMMANDS_DEFAULT = 10;
     static const int MAX_TYPE_ID_LEN = 4;
-    static const int INPUTBUFFERSIZE_DEFAULT = 64;
+    static const int INPUTBUFFERSIZE_DEFAULT = 0;   //zero means do not allocate
     static const int OUTPUTBUFFERSIZE_DEFAULT = 64;
     // Status and Error  Codes
     typedef enum StatusCode {
@@ -67,7 +67,7 @@ class PacketCommand{
     };
     // Constructor
     PacketCommand(size_t maxCommands      = MAXCOMMANDS_DEFAULT,
-                  size_t inputBufferSize = INPUTBUFFERSIZE_DEFAULT,
+                  size_t inputBufferSize  = INPUTBUFFERSIZE_DEFAULT,
                   size_t outputBufferSize = OUTPUTBUFFERSIZE_DEFAULT
                  );
     STATUS addCommand(const byte* type_id,
@@ -76,42 +76,45 @@ class PacketCommand{
     STATUS registerDefaultHandler(void (*function)(PacketCommand));             // A handler to call when no valid command received.
     //registering callbacks for IO steps
     //input
-    STATUS registerBeginInputCallback(void (*function)(void));
-    STATUS registerRecvCallback(bool (*function)(byte* inbuf, size_t& lenByRef));
-    STATUS registerReplySendCallback(void (*function)(byte* outbuf, size_t len));
-    STATUS registerEndInputCallback(void (*function)(void));
+    STATUS registerBeginInputCallback(void (*function)(PacketCommand));
+    STATUS registerRecvCallback(bool (*function)(PacketCommand));
+    STATUS registerReplySendCallback(void (*function)(PacketCommand));
+    STATUS registerEndInputCallback(void (*function)(PacketCommand));
     //output
-    STATUS registerBeginOutputCallback(void (*function)(void));
-    STATUS registerSendCallback(void (*function)(byte* outbuf, size_t len));     // A callback which writes output to the interface
-    STATUS registerReplyRecvCallback(bool (*function)(byte* inbuf, size_t& lenByRef));
-    STATUS registerEndOutputCallback(void (*function)(void));
+    STATUS registerBeginOutputCallback(void (*function)(PacketCommand));
+    STATUS registerSendCallback(void (*function)(PacketCommand));     // A callback which writes output to the interface
+    STATUS registerReplyRecvCallback(bool (*function)(PacketCommand));
+    STATUS registerEndOutputCallback(void (*function)(PacketCommand));
+    
+    STATUS processInput();  //receive input, match command, and dispatch
     
     STATUS lookupCommandByName(const char* name);                        //lookup and set current command by name
     CommandInfo getCurrentCommand();
 
     STATUS beginInput();
-    STATUS recv();                // Use the '_read_callback' to put data into _input_buffer
+    STATUS recv();                // Use the '_recv_callback' to put data into _input_buffer
     STATUS matchCommand();        // Read the packet header from the input buffer and locate a matching registered handler function
     STATUS dispatchCommand();     // Call the current Command
     STATUS endInput();
     STATUS beginOutput();
-    STATUS send();                // Use the '_write_callback' to send _output_buffer
+    STATUS send();                // Use the '_send_callback' to send _output_buffer
     STATUS endOutput();
     STATUS reply_send();
     STATUS reply_recv();
     
+    void   assignInputBuffer(byte* buff, size_t len);
+    byte*  getInputBuffer();
     int    getInputBufferIndex();
     size_t getInputLen(){return _input_len;};
-    byte*  getInputBuffer(){return _input_buffer;};
     STATUS setInputBufferIndex(int new_index);
     STATUS moveInputBufferIndex(int n);
-    STATUS resetInputBuffer(){_input_index=0;_input_len=0;};
+    void   resetInputBuffer(){_input_index=0;_input_len=0;};
+    byte*  getOutputBuffer(){return _output_buffer;};
     int    getOutputBufferIndex();
     size_t getOutputLen(){return _output_len;};
-    byte*  getOutputBuffer(){return _output_buffer;};
     STATUS setOutputBufferIndex(int new_index);
     STATUS moveOutputBufferIndex(int n);
-    STATUS resetOutputBuffer(){_output_index=0;_output_len=0;};
+    void   resetOutputBuffer(){_output_index=0;_output_len=0;};
     //unpacking chars and bytes
     STATUS unpack_byte(byte& varByRef);
     STATUS unpack_byte_array(byte* buffer, int len);
@@ -154,6 +157,9 @@ class PacketCommand{
     STATUS pack_float64(  float64_t value);
 
   private:
+    //helper methods
+    void allocateInputBuffer(size_t len);
+    //data members
     CommandInfo *_commandList;    //array to hold command entries
     CommandInfo _current_command; //command ready to dispatch
     CommandInfo _default_command; //called when a packet's Type ID is not recognized
@@ -170,14 +176,14 @@ class PacketCommand{
     int    _output_index;
     size_t _output_len;
     //cached callbacks
-    void (*_begin_output_callback)(void);
-    void (*_send_callback)(byte* outbuf, size_t len);
-    void (*_end_output_callback)(void);
-    void (*_begin_input_callback)(void);
-    bool (*_recv_callback)(byte* inbuf, size_t& lenByRef);
-    void (*_end_input_callback)(void);
-    void (*_reply_send_callback)(byte* outbuf, size_t len);
-    bool (*_reply_recv_callback)(byte* inbuf, size_t& lenByRef);
+    void (*_begin_output_callback)(PacketCommand this_pCmd);
+    void (*_send_callback)(PacketCommand this_pCmd);
+    void (*_end_output_callback)(PacketCommand this_pCmd);
+    void (*_begin_input_callback)(PacketCommand this_pCmd);
+    bool (*_recv_callback)(PacketCommand this_pCmd);
+    void (*_end_input_callback)(PacketCommand this_pCmd);
+    void (*_reply_send_callback)(PacketCommand this_pCmd);
+    bool (*_reply_recv_callback)(PacketCommand this_pCmd);
 
 };
 
