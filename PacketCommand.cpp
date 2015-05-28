@@ -291,12 +291,13 @@ PacketCommand::STATUS PacketCommand::processInput(){
   Serial.print(F("\t_input_index="));Serial.println(_input_index);
   Serial.print(F("\t_input_len="));Serial.println(_input_len);
   #endif
-  beginInput();
-  #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("(processInput)-after calling beginInput()"));
-  Serial.print(F("\t_input_index="));Serial.println(_input_index);
-  Serial.print(F("\t_input_len="));Serial.println(_input_len);
-  #endif
+//  beginInput();
+//  #ifdef PACKETCOMMAND_DEBUG
+//  Serial.println(F("(processInput)-after calling beginInput()"));
+//  Serial.print(F("\t_input_index="));Serial.println(_input_index);
+//  Serial.print(F("\t_input_len="));Serial.println(_input_len);
+//  #endif
+  resetInputBuffer();
   STATUS pcs;
   pcs = recv();  //_read_callback will be used to fetch data into input buffer
   #ifdef PACKETCOMMAND_DEBUG
