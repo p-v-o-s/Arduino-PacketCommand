@@ -525,14 +525,17 @@ PacketCommand::CommandInfo PacketCommand::getCurrentCommand() {
  * passing in "this" current PacketCommandCommand object
 */
 PacketCommand::STATUS PacketCommand::dispatchCommand() {
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("In PacketCommand::dispatchCommand"));
+  #endif
   if (_current_command.function != NULL){
     (*_current_command.function)(*this);
     return SUCCESS;
   }
   else{
-  #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("Error: tried to dispatch a NULL handler function pointer"));
-  #endif
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("Error: tried to dispatch a NULL handler function pointer"));
+    #endif
     return ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
 }
