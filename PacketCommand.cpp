@@ -23,7 +23,8 @@
  */
 PacketCommand::PacketCommand(size_t maxCommands,
                              size_t inputBufferSize,
-                             size_t outputBufferSize
+                             size_t outputBufferSize,
+                             size_t inputQueueSize
                             )
   : _commandCount(0)
 {
