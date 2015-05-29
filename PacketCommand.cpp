@@ -40,6 +40,13 @@ PacketCommand::PacketCommand(size_t maxCommands,
   }
   _input_index = 0;
   _input_len   = 0;
+  _inputQueueSize = inputQueueSize;     //limit to input Queue
+  //allocate memory for input queue and initialize
+  _input_queue = (Packet**) calloc(_inputQueueSize, sizeof(Packet**));
+  for(int i=0; i < _inputQueueSize; i++){
+    _input_queue[i] = NULL;
+  }
+  _input_queue_index = -1; //start out empty
   //allocate memory for the output buffer
   _outputBufferSize = outputBufferSize;
   _output_buffer   = (byte*) calloc(outputBufferSize, sizeof(byte));
@@ -291,59 +298,32 @@ PacketCommand::STATUS PacketCommand::processInput(){
   Serial.print(F("\t_input_index="));Serial.println(_input_index);
   Serial.print(F("\t_input_len="));Serial.println(_input_len);
   #endif
-//  beginInput();
-//  #ifdef PACKETCOMMAND_DEBUG
-//  Serial.println(F("(processInput)-after calling beginInput()"));
-//  Serial.print(F("\t_input_index="));Serial.println(_input_index);
-//  Serial.print(F("\t_input_len="));Serial.println(_input_len);
-//  #endif
-  resetInputBuffer();
-  STATUS pcs;
-  pcs = recv();  //_read_callback will be used to fetch data into input buffer
+  STATUS pcs = matchCommand();
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("(processInput)-after calling recv()"));
+  Serial.println(F("(processInput)-after calling matchCommand()"));
   Serial.print(F("\t_input_index="));Serial.println(_input_index);
   Serial.print(F("\t_input_len="));Serial.println(_input_len);
   #endif
-  if (pcs == SUCCESS){  //a packet was received
-    pcs = matchCommand();
+  if (pcs == SUCCESS){  //a command was matched
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("(processInput)-after calling matchCommand()"));
-    Serial.print(F("\t_input_index="));Serial.println(_input_index);
-    Serial.print(F("\t_input_len="));Serial.println(_input_len);
-   #endif
-    if (pcs == SUCCESS){  //a command was matched
-      #ifdef PACKETCOMMAND_DEBUG
-      Serial.print(F("(processInput)-matched command: "));
-      CommandInfo cmd = getCurrentCommand();
-      Serial.println(cmd.name);
-      #endif
-    }
-    else if (pcs == ERROR_NO_TYPE_ID_MATCH){  //valid ID but no command was matched
-      #ifdef PACKETCOMMAND_DEBUG
-      Serial.println(F("(processInput)-no matched command"));
-      #endif
-    }
-    else{
-      Serial.print(F("### Error: pCmd.matchCommand returned status code: "));
-      Serial.println(pcs);
-      return pcs;
-    }
-    //dispatch to handler or default if no match
-    dispatchCommand();
-    return SUCCESS;
+    Serial.print(F("(processInput)-matched command: "));
+    CommandInfo cmd = getCurrentCommand();
+    Serial.println(cmd.name);
+    #endif
   }
-  else if (pcs == NO_PACKET_RECEIVED){
-//    #ifdef DEBUG
-//    Serial.println(F("# no packet received"));
-//    #endif
-    return NO_PACKET_RECEIVED;
+  else if (pcs == ERROR_NO_TYPE_ID_MATCH){  //valid ID but no command was matched
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("(processInput)-no matched command"));
+    #endif
   }
-  else {
-    Serial.print(F("### Error: pCmd.recv returned status code: "));
+  else{
+    Serial.print(F("### Error: pCmd.matchCommand returned status code: "));
     Serial.println(pcs);
     return pcs;
   }
+  //dispatch to handler or default if no match
+  dispatchCommand();
+  return SUCCESS;
 }
 
 
@@ -696,6 +676,87 @@ PacketCommand::STATUS PacketCommand::setInputBufferIndex(int new_index){
 
 PacketCommand::STATUS PacketCommand::moveInputBufferIndex(int n){
   return setInputBufferIndex(_input_index + n);
+}
+
+PacketCommand::STATUS PacketCommand::enqueueInputBuffer(){
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("In PacketCommand::enqueueInputBuffer"));
+  #endif
+  noInterrupts(); //ensure that queue operations are consistent
+  if (_input_queue_index + 1 < _inputQueueSize){
+    //allocate just enough space for saving the current input
+    struct Packet *pkt = (struct Packet *) calloc(1, sizeof(struct Packet*));
+    pkt->length = _input_len;
+    pkt->data   = (byte*) calloc(_input_len, sizeof(byte*));
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.print(F(" copying data: "));
+    #endif
+    //copy the current input buffer to the new packet
+    for(int i=0; i < _input_len; i++){
+      #ifdef PACKETCOMMAND_DEBUG
+      Serial.print(_input_buffer[i], HEX);Serial.print(F(" "));
+      #endif
+      pkt->data[i] = _input_buffer[i];
+    }
+    _input_queue_index++;
+     #ifdef PACKETCOMMAND_DEBUG
+    Serial.println();
+    Serial.print(F("\tqueueing at index:"));Serial.println(_input_queue_index);
+    #endif
+    _input_queue[_input_queue_index] = pkt;
+    interrupts(); //restore interrupts
+    return SUCCESS;
+  }
+  else{
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("\t### Error: Queue Overflow"));
+    #endif
+    interrupts(); //restore interrupts
+    return ERROR_QUEUE_OVERFLOW;
+  }
+}
+
+PacketCommand::STATUS PacketCommand::dequeueInputBuffer(){
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("In PacketCommand::dequeueInputBuffer"));
+  #endif
+  noInterrupts(); //ensure that queue operations are consistent
+  if (_input_queue_index >= 0){
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("\tdequeueing from the front"));
+    Serial.print(F(" copying data: "));
+    #endif
+    //grab the first packet
+    struct Packet *pkt = _input_queue[0];
+    //copy the packet to the current input buffer
+    for(int i=0; (i < pkt->length) && (i < _inputBufferSize); i++){
+      #ifdef PACKETCOMMAND_DEBUG
+      Serial.print(pkt->data[i], HEX);Serial.print(F(" "));
+      #endif
+      _input_buffer[i] = pkt->data[i];
+    }
+    //restore buffer state
+    _input_index = 0;
+    _input_len = min(pkt->length,_inputBufferSize);
+    //move queue elements down
+    for(int j=1; j <= _input_queue_index; j++){
+      _input_queue[j-1] = _input_queue[j];
+    }
+    _input_queue_index--;
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println();
+    Serial.print(F("\tqueueing index at:"));Serial.println(_input_queue_index);
+    #endif
+    interrupts(); //restore interrupts
+    return SUCCESS;
+  }
+  else{
+     #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("\t### Error: Queue Underflow"));
+    #endif
+    interrupts(); //restore interrupts
+    return ERROR_QUEUE_UNDERFLOW;
+  }
 }
 
 

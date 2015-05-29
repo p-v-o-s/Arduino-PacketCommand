@@ -31,7 +31,7 @@
 #include <stdint.h>
 
 // Uncomment the next line to run the library in debug mode (verbose messages)
-//#define PACKETCOMMAND_DEBUG
+#define PACKETCOMMAND_DEBUG
 
 typedef float  float32_t;
 typedef double float64_t;
@@ -42,10 +42,11 @@ typedef double float64_t;
 class PacketCommand{
   public:
     // Constants
-    static const int MAXCOMMANDS_DEFAULT = 10;
-    static const int MAX_TYPE_ID_LEN = 4;
-    static const int INPUTBUFFERSIZE_DEFAULT = 0;   //zero means do not allocate
-    static const int OUTPUTBUFFERSIZE_DEFAULT = 64;
+    static const size_t MAXCOMMANDS_DEFAULT = 10;
+    static const size_t MAX_TYPE_ID_LEN = 4;
+    static const size_t INPUTBUFFERSIZE_DEFAULT = 0;   //zero means do not allocate
+    static const size_t OUTPUTBUFFERSIZE_DEFAULT = 64;
+    static const size_t INPUTQUEUESIZE_DEFAULT = 3;
     // Status and Error  Codes
     typedef enum StatusCode {
       NO_PACKET_RECEIVED          = 1,
@@ -57,7 +58,9 @@ class PacketCommand{
       ERROR_NO_TYPE_ID_MATCH      = -5,
       ERROR_NULL_HANDLER_FUNCTION_POINTER = -6,
       ERROR_PACKET_INDEX_OUT_OF_BOUNDS = -7,
-      ERROR_INPUT_BUFFER_OVERRUN  = -8
+      ERROR_INPUT_BUFFER_OVERRUN  = -8,
+      ERROR_QUEUE_OVERFLOW        = -9,
+      ERROR_QUEUE_UNDERFLOW       = -10
     } STATUS;
     // Command/handler info structure
     struct CommandInfo {
@@ -65,10 +68,16 @@ class PacketCommand{
       const char* name;
       void (*function)(PacketCommand&);     //handler callback function
     };
+    // Packet structure
+    struct Packet {
+      size_t length;
+      byte*    data;
+    };
     // Constructor
     PacketCommand(size_t maxCommands      = MAXCOMMANDS_DEFAULT,
                   size_t inputBufferSize  = INPUTBUFFERSIZE_DEFAULT,
-                  size_t outputBufferSize = OUTPUTBUFFERSIZE_DEFAULT
+                  size_t outputBufferSize = OUTPUTBUFFERSIZE_DEFAULT,
+                  size_t inputQueueSize   = INPUTQUEUESIZE_DEFAULT
                  );
     STATUS addCommand(const byte* type_id,
                       const char* name, 
@@ -109,6 +118,9 @@ class PacketCommand{
     STATUS setInputBufferIndex(int new_index);
     STATUS moveInputBufferIndex(int n);
     void   resetInputBuffer(){_input_index=0;_input_len=0;};
+    STATUS enqueueInputBuffer();
+    STATUS dequeueInputBuffer();
+    int    getInputQueueIndex(){return _input_queue_index;}
     byte*  getOutputBuffer(){return _output_buffer;};
     int    getOutputBufferIndex();
     size_t getOutputLen(){return _output_len;};
@@ -170,6 +182,9 @@ class PacketCommand{
     byte*  _input_buffer;        //this will be a fixed buffer location
     int    _input_index;
     size_t _input_len;
+    size_t _inputQueueSize;     //limit to input Queue
+    Packet** _input_queue;
+    int    _input_queue_index;
     //track state of output buffer
     size_t _outputBufferSize;
     byte*  _output_buffer;       //this will be a fixed buffer location
