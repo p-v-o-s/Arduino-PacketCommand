@@ -693,14 +693,15 @@ PacketCommand::STATUS PacketCommand::enqueueInputBuffer(){
     Serial.print(F("\tqueueing at index:"));Serial.println(_input_queue_index);
     Serial.print(F(" copying data: "));
     #endif
+    struct Packet *pkt = _input_queue[_input_queue_index];
     //copy the current input buffer to the new packet
     for(int i=0; i < _input_len; i++){
       #ifdef PACKETCOMMAND_DEBUG
       Serial.print(_input_buffer[i], HEX);Serial.print(F(" "));
       #endif
-      struct Packet *pkt = _input_queue[_input_queue_index];
       pkt->data[i] = _input_buffer[i];
     }
+    pkt->length = _input_len; //update length field
     #ifdef PACKETCOMMAND_DEBUG
     Serial.println();
     #endif
@@ -747,7 +748,11 @@ PacketCommand::STATUS PacketCommand::dequeueInputBuffer(){
     _input_queue_index--;
     #ifdef PACKETCOMMAND_DEBUG
     Serial.println();
-    Serial.print(F("\tqueueing index at:"));Serial.println(_input_queue_index);
+    Serial.println(F("(dequeueInputBuffer) after copy"));
+    Serial.print(F("\t_input_index="));Serial.println(_input_index);
+    Serial.print(F("\t_input_len="));Serial.println(_input_len);
+    Serial.print(F("\t_input_queue_index="));Serial.println(_input_queue_index);
+    
     #endif
     interrupts(); //restore interrupts
     return SUCCESS;
