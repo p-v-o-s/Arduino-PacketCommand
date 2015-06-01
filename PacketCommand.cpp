@@ -42,10 +42,13 @@ PacketCommand::PacketCommand(size_t maxCommands,
   _input_index = 0;
   _input_len   = 0;
   _inputQueueSize = inputQueueSize;     //limit to input Queue
-  //allocate memory for input queue and initialize
+  //preallocate memory for input queue
   _input_queue = (Packet**) calloc(_inputQueueSize, sizeof(Packet**));
-  for(int i=0; i < _inputQueueSize; i++){
-    _input_queue[i] = NULL;
+  for(size_t i=0; i < _inputQueueSize; i++){
+    struct Packet *pkt = (struct Packet *) calloc(1, sizeof(struct Packet*));
+    pkt->length = _input_len;
+    pkt->data   = (byte*) calloc(_inputBufferSize, sizeof(byte*));
+    _input_queue[i] = pkt;
   }
   _input_queue_index = -1; //start out empty
   //allocate memory for the output buffer
@@ -75,7 +78,7 @@ PacketCommand::STATUS PacketCommand::addCommand(const byte* type_id,
                                                 const char* name,
                                                 void (*function)(PacketCommand&)) {
   byte cur_byte = 0x00;
-  int type_id_len = strlen((char*) type_id);
+  size_t type_id_len = strlen((char*) type_id);
   struct CommandInfo new_command;
   #ifdef PACKETCOMMAND_DEBUG
   Serial.print(F("Adding command #("));
@@ -102,7 +105,7 @@ PacketCommand::STATUS PacketCommand::addCommand(const byte* type_id,
     return ERROR_INVALID_TYPE_ID;
   }
   //check the type_id format
-  for(int i=0; i < MAX_TYPE_ID_LEN; i++){
+  for(size_t i=0; i < MAX_TYPE_ID_LEN; i++){
     if (i < type_id_len){
       //test if the type ID rules are followed
       cur_byte = type_id[i];
@@ -334,7 +337,7 @@ PacketCommand::STATUS PacketCommand::lookupCommandByName(const char* name){
   Serial.print(F("Searching for command named = "));
   Serial.println(name);
   #endif
-  for(int i=0; i <= _maxCommands; i++){
+  for(size_t i=0; i <= _maxCommands; i++){
     #ifdef PACKETCOMMAND_DEBUG
     Serial.print(F("\tsearching command at index="));
     Serial.println(i);
@@ -685,11 +688,9 @@ PacketCommand::STATUS PacketCommand::enqueueInputBuffer(){
   #endif
   noInterrupts(); //ensure that queue operations are consistent
   if (_input_queue_index + 1 < _inputQueueSize){
-    //allocate just enough space for saving the current input
-    struct Packet *pkt = (struct Packet *) calloc(1, sizeof(struct Packet*));
-    pkt->length = _input_len;
-    pkt->data   = (byte*) calloc(_input_len, sizeof(byte*));
+    _input_queue_index++;
     #ifdef PACKETCOMMAND_DEBUG
+    Serial.print(F("\tqueueing at index:"));Serial.println(_input_queue_index);
     Serial.print(F(" copying data: "));
     #endif
     //copy the current input buffer to the new packet
@@ -697,14 +698,12 @@ PacketCommand::STATUS PacketCommand::enqueueInputBuffer(){
       #ifdef PACKETCOMMAND_DEBUG
       Serial.print(_input_buffer[i], HEX);Serial.print(F(" "));
       #endif
+      struct Packet *pkt = _input_queue[_input_queue_index];
       pkt->data[i] = _input_buffer[i];
     }
-    _input_queue_index++;
-     #ifdef PACKETCOMMAND_DEBUG
+    #ifdef PACKETCOMMAND_DEBUG
     Serial.println();
-    Serial.print(F("\tqueueing at index:"));Serial.println(_input_queue_index);
     #endif
-    _input_queue[_input_queue_index] = pkt;
     interrupts(); //restore interrupts
     return SUCCESS;
   }
@@ -740,9 +739,11 @@ PacketCommand::STATUS PacketCommand::dequeueInputBuffer(){
     _input_index = 0;
     _input_len = min(pkt->length,_inputBufferSize);
     //move queue elements down
-    for(int j=1; j <= _input_queue_index; j++){
+    for(int j=1; j < _inputQueueSize; j++){
       _input_queue[j-1] = _input_queue[j];
     }
+    //reuse the first pointer at last slot of the queue
+    _input_queue[_inputQueueSize-1] = pkt;
     _input_queue_index--;
     #ifdef PACKETCOMMAND_DEBUG
     Serial.println();
