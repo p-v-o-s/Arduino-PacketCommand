@@ -24,7 +24,8 @@
 PacketCommand::PacketCommand(size_t maxCommands,
                              size_t inputBufferSize,
                              size_t outputBufferSize,
-                             size_t inputQueueSize
+                             size_t inputQueueSize,
+                             size_t outputQueueSize
                             )
   : _commandCount(0)
 {
@@ -56,6 +57,17 @@ PacketCommand::PacketCommand(size_t maxCommands,
   _output_buffer   = (byte*) calloc(outputBufferSize, sizeof(byte));
   _output_index = 0;
   _output_len   = 0;
+  _outputQueueSize = outputQueueSize;     //limit to input Queue
+  //preallocate memory for input queue
+  _output_queue = (Packet**) calloc(_outputQueueSize, sizeof(Packet**));
+  for(size_t i=0; i < _outputQueueSize; i++){
+    struct Packet *pkt = (struct Packet *) calloc(1, sizeof(struct Packet*));
+    pkt->length = _output_len;
+    pkt->data   = (byte*) calloc(_outputBufferSize, sizeof(byte*));
+    _output_queue[i] = pkt;
+  }
+  _output_queue_index = -1; //start out empty
+  //null out unregistered callbacks
   _begin_input_callback = NULL;
   _recv_callback = NULL;
   _reply_send_callback = NULL;
@@ -791,6 +803,132 @@ PacketCommand::STATUS PacketCommand::setOutputBufferIndex(int new_index){
 PacketCommand::STATUS PacketCommand::moveOutputBufferIndex(int n){
   return setOutputBufferIndex(_output_index + n);
 }
+
+PacketCommand::STATUS PacketCommand::enqueueOutputBuffer(){
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("In PacketCommand::enqueueOutputBuffer"));
+  Serial.print(F("\t_output_queue_index="));Serial.println(_output_queue_index);
+  Serial.print(F("\t_outputQueueSize="));Serial.println(_outputQueueSize);
+  #endif
+  noInterrupts(); //ensure that queue operations are consistent
+  if (_output_queue_index + 1 < _outputQueueSize){
+    _output_queue_index++;
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.print(F("\tqueueing at index:"));Serial.println(_output_queue_index);
+    Serial.print(F(" copying data: "));
+    #endif
+    struct Packet *pkt = _output_queue[_output_queue_index];
+    //copy the current output buffer to the new packet
+    for(int i=0; i < _output_len; i++){
+      #ifdef PACKETCOMMAND_DEBUG
+      Serial.print(_output_buffer[i], HEX);Serial.print(F(" "));
+      #endif
+      pkt->data[i] = _output_buffer[i];
+    }
+    pkt->length = _output_len; //update length field
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println();
+    #endif
+    interrupts(); //restore interrupts
+    return SUCCESS;
+  }
+  else{
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("\t### Error: Queue Overflow"));
+    #endif
+    interrupts(); //restore interrupts
+    return ERROR_QUEUE_OVERFLOW;
+  }
+}
+
+PacketCommand::STATUS PacketCommand::dequeueOutputBuffer(){
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("In PacketCommand::dequeueOutputBuffer"));
+  #endif
+  noInterrupts(); //ensure that queue operations are consistent
+  if (_output_queue_index >= 0){
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("\tdequeueing from the front"));
+    Serial.print(F(" copying data: "));
+    #endif
+    //grab the first packet
+    struct Packet *pkt = _output_queue[0];
+    //copy the packet to the current output buffer
+    for(int i=0; (i < pkt->length) && (i < _outputBufferSize); i++){
+      #ifdef PACKETCOMMAND_DEBUG
+      Serial.print(pkt->data[i], HEX);Serial.print(F(" "));
+      #endif
+      _output_buffer[i] = pkt->data[i];
+    }
+    //restore buffer state
+    _output_index = 0;
+    _output_len = min(pkt->length,_outputBufferSize);
+    //move queue elements down
+    for(int j=1; j < _outputQueueSize; j++){
+      _output_queue[j-1] = _output_queue[j];
+    }
+    //reuse the first pointer at last slot of the queue
+    _output_queue[_outputQueueSize-1] = pkt;
+    _output_queue_index--;
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println();
+    Serial.println(F("(dequeueOutputBuffer) after copy"));
+    Serial.print(F("\t_output_index="));Serial.println(_output_index);
+    Serial.print(F("\t_output_len="));Serial.println(_output_len);
+    Serial.print(F("\t_output_queue_index="));Serial.println(_output_queue_index);
+    #endif
+    interrupts(); //restore interrupts
+    return SUCCESS;
+  }
+  else{
+     #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("\t### Error: Queue Underflow"));
+    #endif
+    interrupts(); //restore interrupts
+    return ERROR_QUEUE_UNDERFLOW;
+  }
+}
+
+PacketCommand::STATUS PacketCommand::requeueOutputBuffer(){
+  //pushes output buffer onto the front of the queue
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("In PacketCommand::requeueOutputBuffer"));
+  Serial.print(F("\t_output_queue_index="));Serial.println(_output_queue_index);
+  Serial.print(F("\t_outputQueueSize="));Serial.println(_outputQueueSize);
+  #endif
+  noInterrupts(); //ensure that queue operations are consistent
+  if (_output_queue_index + 1 < _outputQueueSize){
+    _output_queue_index++;
+    //move queue elements up
+    for(int j=0; j < _outputQueueSize - 1; j++){
+      _output_queue[j+1] = _output_queue[j];
+    }
+    //grab the front slot of the queue
+    struct Packet *pkt = _output_queue[0];
+    //copy the current output buffer to the packet slot
+    for(int i=0; i < _output_len; i++){
+      pkt->data[i] = _output_buffer[i];
+    }
+    pkt->length = _output_len; //update length field
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("(requeueOutputBuffer) after copy"));
+    Serial.print(F("\t_output_index="));Serial.println(_output_index);
+    Serial.print(F("\t_output_len="));Serial.println(_output_len);
+    Serial.print(F("\t_output_queue_index="));Serial.println(_output_queue_index);
+    #endif
+    interrupts(); //restore interrupts
+    return SUCCESS;
+  }
+  else{
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("\t### Error: Queue Overflow"));
+    #endif
+    interrupts(); //restore interrupts
+    return ERROR_QUEUE_OVERFLOW;
+  }
+}
+
+
 /******************************************************************************/
 // Byte field unpacking methods from input buffer
 /******************************************************************************/

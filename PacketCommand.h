@@ -31,7 +31,7 @@
 #include <stdint.h>
 
 // Uncomment the next line to run the library in debug mode (verbose messages)
-#define PACKETCOMMAND_DEBUG
+//#define PACKETCOMMAND_DEBUG
 
 typedef float  float32_t;
 typedef double float64_t;
@@ -47,6 +47,7 @@ class PacketCommand{
     static const size_t INPUTBUFFERSIZE_DEFAULT = 0;   //zero means do not allocate
     static const size_t OUTPUTBUFFERSIZE_DEFAULT = 64;
     static const size_t INPUTQUEUESIZE_DEFAULT = 3;
+    static const size_t OUTPUTQUEUESIZE_DEFAULT = 3;
     // Status and Error  Codes
     typedef enum StatusCode {
       NO_PACKET_RECEIVED          = 1,
@@ -77,7 +78,8 @@ class PacketCommand{
     PacketCommand(size_t maxCommands      = MAXCOMMANDS_DEFAULT,
                   size_t inputBufferSize  = INPUTBUFFERSIZE_DEFAULT,
                   size_t outputBufferSize = OUTPUTBUFFERSIZE_DEFAULT,
-                  size_t inputQueueSize   = INPUTQUEUESIZE_DEFAULT
+                  size_t inputQueueSize   = INPUTQUEUESIZE_DEFAULT,
+                  size_t outputQueueSize  = OUTPUTQUEUESIZE_DEFAULT
                  );
     STATUS addCommand(const byte* type_id,
                       const char* name, 
@@ -125,6 +127,10 @@ class PacketCommand{
     int    getOutputBufferIndex();
     size_t getOutputLen(){return _output_len;};
     STATUS setOutputBufferIndex(int new_index);
+    STATUS enqueueOutputBuffer();
+    STATUS dequeueOutputBuffer();
+    STATUS requeueOutputBuffer();
+    int    getOutputQueueIndex(){return _output_queue_index;}
     STATUS moveOutputBufferIndex(int n);
     void   resetOutputBuffer(){_output_index=0;_output_len=0;};
     //unpacking chars and bytes
@@ -190,6 +196,9 @@ class PacketCommand{
     byte*  _output_buffer;       //this will be a fixed buffer location
     int    _output_index;
     size_t _output_len;
+    size_t _outputQueueSize;     //limit to input Queue
+    Packet** _output_queue;
+    int    _output_queue_index;
     //cached callbacks
     void (*_begin_output_callback)(PacketCommand& this_pCmd);
     void (*_send_callback)(PacketCommand& this_pCmd);
