@@ -44,6 +44,7 @@ PacketCommand::PacketCommand(size_t maxCommands,
   _input_len   = 0;
   _inputQueueSize = inputQueueSize;     //limit to input Queue
   //preallocate memory for input queue
+  
   _input_queue = (Packet**) calloc(_inputQueueSize, sizeof(Packet**));
   for(size_t i=0; i < _inputQueueSize; i++){
     struct Packet *pkt = (struct Packet *) calloc(1, sizeof(struct Packet*));
@@ -51,6 +52,7 @@ PacketCommand::PacketCommand(size_t maxCommands,
     pkt->data   = (byte*) calloc(_inputBufferSize, sizeof(byte*));
     _input_queue[i] = pkt;
   }
+  
   _input_queue_index = -1; //start out empty
   //allocate memory for the output buffer
   _outputBufferSize = outputBufferSize;
@@ -630,15 +632,34 @@ PacketCommand::STATUS PacketCommand::moveInputBufferIndex(int n){
 PacketCommand::STATUS PacketCommand::enqueueInputBuffer(){
   #ifdef PACKETCOMMAND_DEBUG
   Serial.println(F("In PacketCommand::enqueueInputBuffer"));
+  for (int i=0; i < _inputQueueSize; i++){
+    struct Packet *pkt = _input_queue[i];
+    Serial.print(F(" !!! _input_queue["));Serial.print(i);Serial.print(F("]="));
+    Serial.println((uint32_t) _input_queue[i], HEX);
+  }
   #endif
   noInterrupts(); //ensure that queue operations are consistent
   if (_input_queue_index + 1 < _inputQueueSize){
     _input_queue_index++;
+     struct Packet *pkt = _input_queue[_input_queue_index];
+    
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.print(F(" !!! _input_queue="));Serial.println((uint32_t) _input_queue, HEX);
+    Serial.print(F(" !!! _input_queue[0]="));Serial.println((uint32_t) _input_queue[0], HEX);
+    Serial.print(F(" !!! queue front  data: "));
+    struct Packet *pkt2 = _input_queue[0];
+    for(int i=0; i <  pkt2->length ; i++){
+      Serial.print(pkt2->data[i], HEX);Serial.print(F(" "));
+    }
+    Serial.println();
+    #endif
+    
+    
     #ifdef PACKETCOMMAND_DEBUG
     Serial.print(F("\tqueueing at index:"));Serial.println(_input_queue_index);
+    Serial.print(F(" !!! pkt="));Serial.println((uint32_t) pkt, HEX);
     Serial.print(F(" copying data: "));
     #endif
-    struct Packet *pkt = _input_queue[_input_queue_index];
     //copy the current input buffer to the new packet
     for(int i=0; i < _input_len; i++){
       #ifdef PACKETCOMMAND_DEBUG
@@ -647,10 +668,23 @@ PacketCommand::STATUS PacketCommand::enqueueInputBuffer(){
       pkt->data[i] = _input_buffer[i];
     }
     pkt->length = _input_len; //update length field
+    //pkt->flags = 0xFF; //FIXME debugging only!
     #ifdef PACKETCOMMAND_DEBUG
     Serial.println();
     #endif
     interrupts(); //restore interrupts
+    
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.print(F(" !!! _input_queue="));Serial.println((uint32_t) _input_queue, HEX);
+    Serial.print(F(" !!! _input_queue[0]="));Serial.println((uint32_t) _input_queue[0], HEX);
+    Serial.print(F(" !!! queue front  data: "));
+    struct Packet *pkt3 = _input_queue[0];
+    for(int i=0; i <  pkt3->length ; i++){
+      Serial.print(pkt3->data[i], HEX);Serial.print(F(" "));
+    }
+    Serial.println();
+    #endif
+    
     return SUCCESS;
   }
   else{
@@ -664,16 +698,33 @@ PacketCommand::STATUS PacketCommand::enqueueInputBuffer(){
 
 PacketCommand::STATUS PacketCommand::dequeueInputBuffer(){
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("In PacketCommand::dequeueInputBuffer"));
+  Serial.println(F("In PacketCommand::dequeueInputBuffer (ENTER)"));
+  for (int i=0; i < _inputQueueSize; i++){
+    struct Packet *pkt = _input_queue[i];
+    Serial.print(F(" !!! _input_queue["));Serial.print(i);Serial.print(F("]="));
+    Serial.println((uint32_t) _input_queue[i], HEX);
+  }
   #endif
+//  #ifdef PACKETCOMMAND_DEBUG
+//    Serial.print(F(" !!! _input_queue="));Serial.println((uint32_t) _input_queue, HEX);
+//    Serial.print(F(" !!! _input_queue[0]="));Serial.println((uint32_t) _input_queue[0], HEX);
+//    Serial.print(F(" !!! queue front  data: "));
+//    struct Packet *pkt2 = _input_queue[0];
+//    for(int i=0; i <  pkt2->length ; i++){
+//      Serial.print(pkt2->data[i], HEX);Serial.print(F(" "));
+//    }
+//    Serial.println();
+//    #endif
+  
   noInterrupts(); //ensure that queue operations are consistent
   if (_input_queue_index >= 0){
-    #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("\tdequeueing from the front"));
-    Serial.print(F(" copying data: "));
-    #endif
     //grab the first packet
     struct Packet *pkt = _input_queue[0];
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F(" \tdequeueing from the front"));
+    //Serial.print(F(" \tflags="));Serial.println(pkt->flags, HEX);
+    Serial.print(F(" \tcopying data: "));
+    #endif
     //copy the packet to the current input buffer
     for(int i=0; (i < pkt->length) && (i < _inputBufferSize); i++){
       #ifdef PACKETCOMMAND_DEBUG
@@ -697,9 +748,16 @@ PacketCommand::STATUS PacketCommand::dequeueInputBuffer(){
     Serial.print(F("\t_input_index="));Serial.println(_input_index);
     Serial.print(F("\t_input_len="));Serial.println(_input_len);
     Serial.print(F("\t_input_queue_index="));Serial.println(_input_queue_index);
-    
     #endif
     interrupts(); //restore interrupts
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("In PacketCommand::dequeueInputBuffer (EXIT)"));
+    for (int i=0; i < _inputQueueSize; i++){
+      struct Packet *pkt = _input_queue[i];
+      Serial.print(F(" !!! _input_queue["));Serial.print(i);Serial.print(F("]="));
+      Serial.println((uint32_t) _input_queue[i], HEX);
+    }
+    #endif
     return SUCCESS;
   }
   else{

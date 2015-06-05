@@ -82,9 +82,12 @@ class PacketCommand{
     };
     // Packet structure
     struct Packet {
-      uint8_t flags;
+      //uint32_t flags;
+      //uint8_t flags2;
       size_t  length;
       byte*    data;
+      size_t a;
+      size_t b;
     };
     // Constructor
     PacketCommand(size_t maxCommands      = MAXCOMMANDS_DEFAULT,
