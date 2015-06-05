@@ -31,7 +31,7 @@
 #include <stdint.h>
 
 // Uncomment the next line to run the library in debug mode (verbose messages)
-//#define PACKETCOMMAND_DEBUG
+#define PACKETCOMMAND_DEBUG
 
 typedef float  float32_t;
 typedef double float64_t;
@@ -69,11 +69,22 @@ class PacketCommand{
       const char* name;
       void (*function)(PacketCommand&);     //handler callback function
     };
+    //Packet flags
+    enum PacketFlags {
+      PFLAG_IS_QUERY = 0x01,
+      //PFLAG_1 = 0x02,
+      //PFLAG_2 = 0x04,
+      //PFLAG_3 = 0x08,
+      //PFLAG_4 = 0x10,
+      //PFLAG_5 = 0x20,
+      //PFLAG_6 = 0x40,
+      //PFLAG_7 = 0x80
+    };
     // Packet structure
     struct Packet {
-      size_t length;
+      uint8_t flags;
+      size_t  length;
       byte*    data;
-      bool is_query;
     };
     // Constructor
     PacketCommand(size_t maxCommands      = MAXCOMMANDS_DEFAULT,

@@ -759,7 +759,7 @@ PacketCommand::STATUS PacketCommand::enqueueOutputBuffer(){
       pkt->data[i] = _output_buffer[i];
     }
     pkt->length   = _output_len; //update length field
-    pkt->is_query = _output_is_query; 
+    //pkt->is_query = _output_is_query; 
     #ifdef PACKETCOMMAND_DEBUG
     Serial.println();
     #endif
@@ -797,7 +797,7 @@ PacketCommand::STATUS PacketCommand::dequeueOutputBuffer(){
     //restore buffer state
     _output_index = 0;
     _output_len = min(pkt->length,_outputBufferSize);
-    _output_is_query = pkt->is_query;
+    //_output_is_query = pkt->is_query;
     //move queue elements down
     for(int j=1; j < _outputQueueSize; j++){
       _output_queue[j-1] = _output_queue[j];
@@ -825,6 +825,7 @@ PacketCommand::STATUS PacketCommand::dequeueOutputBuffer(){
   }
 }
 
+
 PacketCommand::STATUS PacketCommand::requeueOutputBuffer(){
   //pushes output buffer onto the front of the queue
   #ifdef PACKETCOMMAND_DEBUG
@@ -846,7 +847,7 @@ PacketCommand::STATUS PacketCommand::requeueOutputBuffer(){
       pkt->data[i] = _output_buffer[i];
     }
     pkt->length = _output_len; //update length field
-    pkt->is_query = _output_is_query; 
+    //pkt->is_query = _output_is_query;
     #ifdef PACKETCOMMAND_DEBUG
     Serial.println(F("(requeueOutputBuffer) after copy"));
     Serial.print(F("\t_output_index="));Serial.println(_output_index);
