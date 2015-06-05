@@ -68,14 +68,11 @@ PacketCommand::PacketCommand(size_t maxCommands,
   }
   _output_queue_index = -1; //start out empty
   //null out unregistered callbacks
-  _begin_input_callback = NULL;
   _recv_callback = NULL;
   _reply_send_callback = NULL;
-  _end_input_callback = NULL;
-  _begin_output_callback = NULL;
   _send_callback = NULL;
+  _send_nonblocking_callback = NULL;
   _reply_recv_callback = NULL;
-  _end_output_callback = NULL;
 }
 
 /**
@@ -201,18 +198,6 @@ PacketCommand::STATUS PacketCommand::registerDefaultHandler(void (*function)(Pac
   }
 }
 
-/**
- * 
- */
-PacketCommand::STATUS PacketCommand::registerBeginInputCallback(void (*function)(PacketCommand&)){
-  if (function != NULL){
-    _begin_input_callback = function;
-    return SUCCESS;
-  }
-  else{
-    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
-  }
-}
 
 /**
  * This sets up a callback which can be used by a command handler to read a 
@@ -243,24 +228,12 @@ PacketCommand::STATUS PacketCommand::registerReplySendCallback(void (*function)(
 }
 
 /**
- * 
+ * This sets up a callback which can be used by a command handler to send a 
+ * packet from its output buffer
  */
-PacketCommand::STATUS PacketCommand::registerEndInputCallback(void (*function)(PacketCommand&)){
+PacketCommand::STATUS PacketCommand::registerSendCallback(void (*function)(PacketCommand&)){
   if (function != NULL){
-    _end_input_callback = function;
-    return SUCCESS;
-  }
-  else{
-    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
-  }
-}
-
-/**
- * 
- */
-PacketCommand::STATUS PacketCommand::registerBeginOutputCallback(void (*function)(PacketCommand&)){
-  if (function != NULL){
-    _begin_output_callback = function;
+    _send_callback = function;
     return SUCCESS;
   }
   else{
@@ -272,9 +245,9 @@ PacketCommand::STATUS PacketCommand::registerBeginOutputCallback(void (*function
  * This sets up a callback which can be used by a command handler to send a 
  * packet from its output buffer
  */
-PacketCommand::STATUS PacketCommand::registerSendCallback(void (*function)(PacketCommand&)){
+PacketCommand::STATUS PacketCommand::registerSendNonblockingCallback(void (*function)(PacketCommand&)){
   if (function != NULL){
-    _send_callback = function;
+    _send_nonblocking_callback = function;
     return SUCCESS;
   }
   else{
@@ -298,16 +271,6 @@ PacketCommand::STATUS PacketCommand::registerReplyRecvCallback(bool (*function)(
 /**
  * 
  */
-PacketCommand::STATUS PacketCommand::registerEndOutputCallback(void (*function)(PacketCommand&)){
-  if (function != NULL){
-    _end_output_callback = function;
-    return SUCCESS;
-  }
-  else{
-    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
-  }
-}
-
 PacketCommand::STATUS PacketCommand::processInput(){
   #ifdef PACKETCOMMAND_DEBUG
   Serial.println(F("In PacketCommand::processInput"));
@@ -366,22 +329,6 @@ PacketCommand::STATUS PacketCommand::lookupCommandByName(const char* name){
     }
   }
   return ERROR_NO_COMMAND_NAME_MATCH;
-}
-
-// Begin an input phase by prepareing input buffer and calling back to client
-PacketCommand::STATUS PacketCommand::beginInput(){
-  #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("In PacketCommand::beginInput()"));
-  Serial.print(F("\t_input_index="));Serial.println(_input_index);
-  Serial.print(F("\t_input_len="));Serial.println(_input_len);
-  #endif
-  _input_index = 0;
-  _input_len = 0;
-  //call if it exists
-  if (_begin_input_callback != NULL){
-    (*_begin_input_callback)(*this);
-  }
-  return SUCCESS;
 }
 
 PacketCommand::STATUS PacketCommand::recv() {
@@ -539,26 +486,6 @@ PacketCommand::STATUS PacketCommand::dispatchCommand() {
 
 //use unpack* methods to pull out data from packet
 
-// End an input phase by calling back to client
-PacketCommand::STATUS PacketCommand::endInput(){
-  //call if it exists
-  if (_end_input_callback != NULL){
-    (*_end_input_callback)(*this);
-  }
-  return SUCCESS;
-}
-
-// Begin an input phase by prepareing input buffer and calling back to client
-PacketCommand::STATUS PacketCommand::beginOutput(){
-  _output_index = 0;
-  _output_len = 0;
-  //call if it exists
-  if (_begin_output_callback != NULL){
-    (*_begin_output_callback)(*this);
-  }
-  return SUCCESS;
-}
-
 PacketCommand::STATUS PacketCommand::setupOutputCommandByName(const char* name){
   STATUS pcs;
   byte cur_byte;
@@ -592,13 +519,19 @@ PacketCommand::STATUS PacketCommand::send(){
   }
 }
 
-// Begin the dialog by prepareing input and output buffers and calling back to client
-PacketCommand::STATUS PacketCommand::endOutput(){
-  //call if it exists
-  if (_end_output_callback != NULL){
-    (*_end_output_callback)(*this);
+// Use the '_send_nonblocking_callback' to send return packet
+PacketCommand::STATUS PacketCommand::send_nonblocking(){
+  if (_send_nonblocking_callback != NULL){
+    //call the nonblocking send callback
+    (*_send_nonblocking_callback)(*this);
+    return SUCCESS;
   }
-  return SUCCESS;
+  else{
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println(F("Error: tried to send using a NULL send nonblocking callback function pointer"));
+    #endif
+    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+  }
 }
 
 

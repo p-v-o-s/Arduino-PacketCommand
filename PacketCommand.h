@@ -88,29 +88,23 @@ class PacketCommand{
     STATUS registerDefaultHandler(void (*function)(PacketCommand&));             // A handler to call when no valid command received.
     //registering callbacks for IO steps
     //input
-    STATUS registerBeginInputCallback(void (*function)(PacketCommand&));
     STATUS registerRecvCallback(bool (*function)(PacketCommand&));
     STATUS registerReplySendCallback(void (*function)(PacketCommand&));
-    STATUS registerEndInputCallback(void (*function)(PacketCommand&));
     //output
-    STATUS registerBeginOutputCallback(void (*function)(PacketCommand&));
-    STATUS registerSendCallback(void (*function)(PacketCommand&));     // A callback which writes output to the interface
+    STATUS registerSendCallback(void (*function)(PacketCommand&));              // A callback which writes output to the interface
+    STATUS registerSendNonblockingCallback(void (*function)(PacketCommand&));   // A callback which schedules to writes output to the interface, returns immediately
     STATUS registerReplyRecvCallback(bool (*function)(PacketCommand&));
-    STATUS registerEndOutputCallback(void (*function)(PacketCommand&));
     
     STATUS processInput();  //receive input, match command, and dispatch
     
     STATUS lookupCommandByName(const char* name);                        //lookup and set current command by name
     CommandInfo getCurrentCommand();
 
-    STATUS beginInput();
     STATUS recv();                // Use the '_recv_callback' to put data into _input_buffer
     STATUS matchCommand();        // Read the packet header from the input buffer and locate a matching registered handler function
     STATUS dispatchCommand();     // Call the current Command
-    STATUS endInput();
-    STATUS beginOutput();
     STATUS send();                // Use the '_send_callback' to send _output_buffer
-    STATUS endOutput();
+    STATUS send_nonblocking();    // Use the '_send_nonblocking_callback' to send _schedule the output_buffer contents to be sent, returning immediately
     STATUS reply_send();
     STATUS reply_recv();
     
@@ -204,12 +198,9 @@ class PacketCommand{
     Packet** _output_queue;
     int    _output_queue_index;
     //cached callbacks
-    void (*_begin_output_callback)(PacketCommand& this_pCmd);
     void (*_send_callback)(PacketCommand& this_pCmd);
-    void (*_end_output_callback)(PacketCommand& this_pCmd);
-    void (*_begin_input_callback)(PacketCommand& this_pCmd);
+    void (*_send_nonblocking_callback)(PacketCommand& this_pCmd);
     bool (*_recv_callback)(PacketCommand& this_pCmd);
-    void (*_end_input_callback)(PacketCommand& this_pCmd);
     void (*_reply_send_callback)(PacketCommand& this_pCmd);
     bool (*_reply_recv_callback)(PacketCommand& this_pCmd);
 
