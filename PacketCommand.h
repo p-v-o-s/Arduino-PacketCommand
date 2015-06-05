@@ -73,6 +73,7 @@ class PacketCommand{
     struct Packet {
       size_t length;
       byte*    data;
+      bool is_query;
     };
     // Constructor
     PacketCommand(size_t maxCommands      = MAXCOMMANDS_DEFAULT,
@@ -127,6 +128,8 @@ class PacketCommand{
     int    getOutputBufferIndex();
     size_t getOutputLen(){return _output_len;};
     STATUS setOutputBufferIndex(int new_index);
+    STATUS markOutputAsQuery(){_output_is_query=true;return SUCCESS;}
+    bool   isOutputQuery(){return _output_is_query;}
     STATUS enqueueOutputBuffer();
     STATUS dequeueOutputBuffer();
     STATUS requeueOutputBuffer();
@@ -196,6 +199,7 @@ class PacketCommand{
     byte*  _output_buffer;       //this will be a fixed buffer location
     int    _output_index;
     size_t _output_len;
+    bool   _output_is_query = false;
     size_t _outputQueueSize;     //limit to input Queue
     Packet** _output_queue;
     int    _output_queue_index;
