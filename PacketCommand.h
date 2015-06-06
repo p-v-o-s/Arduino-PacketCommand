@@ -44,7 +44,7 @@ class PacketCommand{
     // Constants
     static const size_t MAXCOMMANDS_DEFAULT = 10;
     static const size_t MAX_TYPE_ID_LEN = 4;
-    static const size_t INPUTBUFFERSIZE_DEFAULT = 0;   //zero means do not allocate
+    static const size_t INPUTBUFFERSIZE_DEFAULT = 64;   //FIXME zero means do not allocate
     static const size_t OUTPUTBUFFERSIZE_DEFAULT = 64;
     static const size_t INPUTQUEUESIZE_DEFAULT = 3;
     static const size_t OUTPUTQUEUESIZE_DEFAULT = 3;
