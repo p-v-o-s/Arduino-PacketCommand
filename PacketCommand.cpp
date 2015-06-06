@@ -45,11 +45,11 @@ PacketCommand::PacketCommand(size_t maxCommands,
   _inputQueueSize = inputQueueSize;     //limit to input Queue
   //preallocate memory for input queue
   
-  _input_queue = (Packet**) calloc(_inputQueueSize, sizeof(Packet**));
+  _input_queue = (Packet**) calloc(_inputQueueSize, sizeof(Packet*));
   for(size_t i=0; i < _inputQueueSize; i++){
-    struct Packet *pkt = (struct Packet *) calloc(1, sizeof(struct Packet*));
+    struct Packet *pkt = (struct Packet *) calloc(1, sizeof(struct Packet));
     pkt->length = _input_len;
-    pkt->data   = (byte*) calloc(_inputBufferSize, sizeof(byte*));
+    pkt->data   = (byte*) calloc(_inputBufferSize, sizeof(byte));
     _input_queue[i] = pkt;
   }
   
@@ -61,11 +61,11 @@ PacketCommand::PacketCommand(size_t maxCommands,
   _output_len   = 0;
   _outputQueueSize = outputQueueSize;     //limit to input Queue
   //preallocate memory for input queue
-  _output_queue = (Packet**) calloc(_outputQueueSize, sizeof(Packet**));
+  _output_queue = (Packet**) calloc(_outputQueueSize, sizeof(Packet*));
   for(size_t i=0; i < _outputQueueSize; i++){
-    struct Packet *pkt = (struct Packet *) calloc(1, sizeof(struct Packet*));
+    struct Packet *pkt = (struct Packet *) calloc(1, sizeof(struct Packet));
     pkt->length = _output_len;
-    pkt->data   = (byte*) calloc(_outputBufferSize, sizeof(byte*));
+    pkt->data   = (byte*) calloc(_outputBufferSize, sizeof(byte));
     _output_queue[i] = pkt;
   }
   _output_queue_index = -1; //start out empty
