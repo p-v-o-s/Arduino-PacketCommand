@@ -47,38 +47,6 @@ void setup() {
   pCmd.addCommand((byte*) "\x42","LED.OFF",    LED_off);           // Turns LED off  ("\x42" == "B")
   pCmd.registerDefaultHandler(unrecognized);                          // Handler for command that isn't matched  (says "What?")
   
-  //prepare a test packet
-  PacketQueue::Packet test_pkt;
-  test_pkt.data = (byte*) calloc(PQ_DATA_BUFFER_SIZE,sizeof(byte));
-  test_pkt.length = 5;
-  test_pkt.flags  = PacketQueue::PFLAG_IS_QUERY;
-  for(int i=0; i < test_pkt.length;i++){
-    test_pkt.data[i] = i+1;
-  }
-  
-  //enqueue test
-  Serial.println("--- testing enqueue:");
-  pQ.enqueue(test_pkt);
-  delay(1000);
-  
-  //dequeue test
-  Serial.println("--- testing dequeue:");
-  PacketQueue::Packet out_pkt;
-  pQ.dequeue(out_pkt);
-  Serial.print("    got back data:");
-  print_hex(out_pkt.data,out_pkt.length);Serial.println();
-  delay(1000);
-  
-  //enqueue test
-  Serial.println("--- testing enqueue to fill up:");
-  for (int i=0; i < 3; i++){
-    Serial.println("--- testing enqueue:");
-    pQ.enqueue(test_pkt);
-    delay(1000);
-  }
-  
-  
-  
   
 /*  byte* input_buff = pCmd.getInputBuffer();*/
 /*  pCmd.resetInputBuffer();*/
@@ -104,6 +72,55 @@ void loop() {
   PacketCommand::STATUS pcs;
   //pCmd.processInput();
   //do other stuff
+  
+  PacketQueue::STATUS pqs;
+  
+  //prepare a test packet
+  PacketQueue::Packet test_pkt;
+  test_pkt.data = (byte*) calloc(PQ_DATA_BUFFER_SIZE,sizeof(byte));
+  test_pkt.length = 5;
+  test_pkt.flags  = PacketQueue::PFLAG_IS_QUERY;
+  for(int i=0; i < test_pkt.length;i++){
+    test_pkt.data[i] = i+1;
+  }
+  
+  //enqueue test
+  Serial.println("--- testing enqueue:");
+  pQ.enqueue(test_pkt);
+  delay(1000);
+  
+  //dequeue test
+  Serial.println("--- testing dequeue:");
+  PacketQueue::Packet out_pkt;
+  out_pkt.data = (byte*) calloc(PQ_DATA_BUFFER_SIZE,sizeof(byte));
+  pQ.dequeue(out_pkt);
+  Serial.print("    out_pkt.length=");Serial.print(out_pkt.length);Serial.println();
+  Serial.print("    got back data:");
+  print_hex(out_pkt.data,out_pkt.length);Serial.println();
+  delay(1000);
+  
+  Serial.println("--- testing enqueue to fill up:");
+  for (int i=0; i < PQ_CAPACITY; i++){
+    pQ.enqueue(test_pkt);
+    delay(1000);
+  }
+  
+  //testing overflow
+  Serial.println("--- enqueue to overflow:");
+  pqs = pQ.enqueue(test_pkt);
+    Serial.print("    pqs=");Serial.println(pqs);
+  delay(1000);
+  
+  Serial.println("--- testing dequeue to empty:");
+  for (int i=0; i < PQ_CAPACITY; i++){
+    pQ.dequeue(out_pkt);
+    Serial.print("    out_pkt.length=");Serial.print(out_pkt.length);Serial.println();
+    Serial.print("    got back data:");
+    print_hex(out_pkt.data,out_pkt.length);Serial.println();
+    delay(1000);
+  }
+  
+  delay(100000);
 }
 
 void LED_on(PacketCommand& this_pCmd) {
