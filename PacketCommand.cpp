@@ -465,8 +465,15 @@ PacketCommand::STATUS PacketCommand::matchCommand(){
  * Send back the currently active command info structure
 */
 PacketCommand::CommandInfo PacketCommand::getCurrentCommand() {
-    return _current_command;
+  return _current_command;
 }
+
+///**
+// * Set the currently active command info structure
+//*/
+//void PacketCommand::setCurrentCommand(PacketCommand::CommandInfo command) {
+//  _current_command = command;
+//}
 
 /**
  * Execute the stored handler function for the current command,
@@ -492,18 +499,23 @@ PacketCommand::STATUS PacketCommand::dispatchCommand() {
 
 PacketCommand::STATUS PacketCommand::setupOutputCommandByName(const char* name){
   STATUS pcs;
-  byte cur_byte;
   pcs = lookupCommandByName(name);  //sets _current_command on SUCCESS
   //reset output buffer state
   if(pcs == SUCCESS){
-    for(int i=0;i<MAX_TYPE_ID_LEN;i++){
-        cur_byte = _current_command.type_id[i];
-        if(cur_byte == 0x00){ break;}
-        pack_byte(cur_byte);
-    }
-    return SUCCESS;
+    pcs = setupOutputCommand(_current_command);
+    return pcs;
   }
   else{return pcs;}
+}
+
+PacketCommand::STATUS PacketCommand::setupOutputCommand(PacketCommand::CommandInfo command){
+  byte cur_byte;
+  for(int i=0;i<MAX_TYPE_ID_LEN;i++){
+      cur_byte = command.type_id[i];
+      if(cur_byte == 0x00){ break;}
+      pack_byte(cur_byte);
+  }
+  return SUCCESS;
 }
 
 //use pack* methods to add additional arguments to output buffer

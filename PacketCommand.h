@@ -31,7 +31,7 @@
 #include <stdint.h>
 
 // Uncomment the next line to run the library in debug mode (verbose messages)
-#define PACKETCOMMAND_DEBUG
+//#define PACKETCOMMAND_DEBUG
 
 typedef float  float32_t;
 typedef double float64_t;
@@ -108,7 +108,7 @@ class PacketCommand{
     
     STATUS processInput();  //receive input, match command, and dispatch
     
-    STATUS lookupCommandByName(const char* name);                        //lookup and set current command by name
+    STATUS lookupCommandByName(const char* name);                               //lookup and set current command by name
     CommandInfo getCurrentCommand();
 
     STATUS recv();                // Use the '_recv_callback' to put data into _input_buffer
@@ -129,6 +129,7 @@ class PacketCommand{
     STATUS enqueueInputBuffer();
     STATUS dequeueInputBuffer();
     int    getInputQueueIndex(){return _input_queue_index;}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
     byte*  getOutputBuffer(){return _output_buffer;};
     int    getOutputBufferIndex();
     size_t getOutputLen(){return _output_len;};
@@ -162,6 +163,7 @@ class PacketCommand{
     STATUS unpack_float64(  float64_t& varByRef);
     //Methods for constructing an output
     STATUS setupOutputCommandByName(const char* name);
+    STATUS setupOutputCommand(CommandInfo command);
     //packing chars and bytes
     STATUS pack_byte(byte value);
     STATUS pack_byte_array(byte* buffer, int len);
