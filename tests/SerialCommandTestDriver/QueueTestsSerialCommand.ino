@@ -138,11 +138,11 @@ void PQ_DEQ_sCmd_action_handler(SerialCommand this_sCmd) {
     pqs = pQ.dequeue(pkt);
     this_sCmd.print(F("pqs: "));this_sCmd.println(pqs);
     this_sCmd.print(F("pkt.length: "));this_sCmd.println(pkt.length);
-    this_sCmd.print(F("pkt.data: "));
+    this_sCmd.print(F("pkt.data: \""));
     for(size_t i=0; i < pkt.length; i++){
       this_sCmd.print((char) pkt.data[i]);
     }
-    this_sCmd.println();
+    this_sCmd.println("\"");
   }
   else{
     this_sCmd.print(F("### Error: PQ.DEQ requires no arguments\n"));

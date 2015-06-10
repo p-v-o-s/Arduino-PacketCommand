@@ -8,9 +8,19 @@ import random, string
 def randstr(size, chars=string.ascii_uppercase + string.ascii_lowercase +string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
 
-PQ_STATUS = {
-    'ERROR_QUEUE_OVERFLOW': -1,
-    'ERROR_QUEUE_UNDERFLOW': -2
+PS_STATUS = {
+    'NO_PACKET_RECEIVED': 1,
+    'SUCCESS':0,
+    'ERROR_EXCEDED_MAX_COMMANDS':-1,
+    'ERROR_NO_COMMAND_NAME_MATCH':-2,
+    'ERROR_INVALID_PACKET':-3,
+    'ERROR_INVALID_TYPE_ID':-4,
+    'ERROR_NO_TYPE_ID_MATCH':-5,
+    'ERROR_NULL_HANDLER_FUNCTION_POINTER':-6,
+    'ERROR_PACKET_INDEX_OUT_OF_BOUNDS':-7,
+    'ERROR_INPUT_BUFFER_OVERRUN':-8,
+    'ERROR_QUEUE_OVERFLOW':-9,
+    'ERROR_QUEUE_UNDERFLOW':-10,
 }
 
 class SerialCommandDrivenTest(unittest.TestCase):
@@ -38,7 +48,7 @@ class SerialCommandDrivenTest(unittest.TestCase):
         buff = "\n".join(buff)
         return yaml.load_all(buff)
     def testEnqueueDequeue(self):
-        for i in range(10):
+        for i in range(1000):
             #generate some random printable packet data
             pkt = randstr(random.randint(1,32))
             self._send("PQ.ENQ %s" % pkt)
@@ -57,7 +67,7 @@ class SerialCommandDrivenTest(unittest.TestCase):
             pkt = randstr(random.randint(1,32))
             self._send("PQ.ENQ %s" % pkt)
             resp = self._parse_resp().next()
-            if resp['pqs'] == PQ_STATUS['ERROR_QUEUE_OVERFLOW']:
+            if resp['pqs'] == PS_STATUS['ERROR_QUEUE_OVERFLOW']:
                break
             else:
                 self.assertEqual(resp['pqs'],0) #check for error codes
@@ -86,7 +96,7 @@ class SerialCommandDrivenTest(unittest.TestCase):
             pkt = randstr(random.randint(1,32))
             self._send("PQ.ENQ %s" % pkt)
             resp = self._parse_resp().next()
-            if resp['pqs'] == PQ_STATUS['ERROR_QUEUE_OVERFLOW']:
+            if resp['pqs'] == PS_STATUS['ERROR_QUEUE_OVERFLOW']:
                break
             else:
                 self.assertEqual(resp['pqs'],0) #check for error codes
@@ -110,7 +120,7 @@ class SerialCommandDrivenTest(unittest.TestCase):
         #cause underflow
         self._send("PQ.DEQ")
         resp = self._parse_resp().next()
-        self.assertEqual(resp['pqs'],PQ_STATUS['ERROR_QUEUE_UNDERFLOW'])#check for error codes
+        self.assertEqual(resp['pqs'],PS_STATUS['ERROR_QUEUE_UNDERFLOW'])#check for error codes
         self.assertEqual(resp['pkt.length'],0)    #length is zero on error
     def testEnqueueRequeueOrder(self):
         pkts = []
