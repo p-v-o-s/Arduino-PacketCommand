@@ -23,9 +23,7 @@
  */
 PacketCommand::PacketCommand(size_t maxCommands,
                              size_t inputBufferSize,
-                             size_t outputBufferSize,
-                             size_t inputQueueSize,
-                             size_t outputQueueSize
+                             size_t outputBufferSize
                             )
   : _commandCount(0)
 {
@@ -43,34 +41,11 @@ PacketCommand::PacketCommand(size_t maxCommands,
   _input_index = 0;
   _input_len   = 0;
   _input_flags = 0x00;
-  _inputQueueSize = inputQueueSize;     //limit to input Queue
-  //preallocate memory for input queue
-  _input_queue = (Packet**) calloc(_inputQueueSize, sizeof(Packet*));
-  for(size_t i=0; i < _inputQueueSize; i++){
-    Packet *pkt = (Packet*) calloc(1, sizeof(Packet));
-    pkt->data   = (byte*) calloc(_inputBufferSize, sizeof(byte));
-    pkt->length = 0;
-    pkt->flags  = 0x00;
-    _input_queue[i] = pkt;
-  }
-  
-  _input_queue_index = -1; //start out empty
   //allocate memory for the output buffer
   _outputBufferSize = outputBufferSize;
-  _output_buffer   = (byte*) calloc(outputBufferSize, sizeof(byte));
   _output_index = 0;
   _output_len   = 0;
   _output_flags = 0x00;
-  _outputQueueSize = outputQueueSize;     //limit to input Queue
-  //preallocate memory for input queue
-  _output_queue = (Packet**) calloc(_outputQueueSize, sizeof(Packet*));
-  for(size_t i=0; i < _outputQueueSize; i++){
-    Packet *pkt = (Packet *) calloc(1, sizeof(Packet));
-    pkt->length = _output_len;
-    pkt->data   = (byte*) calloc(_outputBufferSize, sizeof(byte));
-    _output_queue[i] = pkt;
-  }
-  _output_queue_index = -1; //start out empty
   //null out unregistered callbacks
   _recv_callback = NULL;
   _reply_send_callback = NULL;
@@ -87,7 +62,7 @@ PacketCommand::PacketCommand(size_t maxCommands,
  * of the command parsing.  The 'name' field is a human-readable string that
  * has no special meaning in the current the implmentation.
  */
-PacketCommand::STATUS PacketCommand::addCommand(const byte* type_id,
+PacketShared::STATUS PacketCommand::addCommand(const byte* type_id,
                                                 const char* name,
                                                 void (*function)(PacketCommand&)) {
   byte cur_byte = 0x00;
@@ -108,14 +83,14 @@ PacketCommand::STATUS PacketCommand::addCommand(const byte* type_id,
       Serial.print(F("Error: exceeded maxCommands="));
       Serial.println(_maxCommands);
       #endif
-      return ERROR_EXCEDED_MAX_COMMANDS;
+      return PacketShared::ERROR_EXCEDED_MAX_COMMANDS;
   }
   if (type_id_len > MAX_TYPE_ID_LEN){
     #ifdef PACKETCOMMAND_DEBUG
     Serial.print(F("Error: 'type_id' cannot exceed MAX_TYPE_ID_LEN="));
     Serial.println(MAX_TYPE_ID_LEN);
     #endif
-    return ERROR_INVALID_TYPE_ID;
+    return PacketShared::ERROR_INVALID_TYPE_ID;
   }
   //check the type_id format
   for(size_t i=0; i < MAX_TYPE_ID_LEN; i++){
@@ -141,14 +116,14 @@ PacketCommand::STATUS PacketCommand::addCommand(const byte* type_id,
             #ifdef PACKETCOMMAND_DEBUG
             Serial.println(F("Error: 'type_id' cannot end with 0xFF"));
             #endif
-            return ERROR_INVALID_TYPE_ID;
+            return PacketShared::ERROR_INVALID_TYPE_ID;
           }
           break;
         case 0x00:
           #ifdef PACKETCOMMAND_DEBUG
           Serial.println(F("Error: 'type_id' cannot contain null (0x00) bytes"));
           #endif
-          return ERROR_INVALID_TYPE_ID;
+          return PacketShared::ERROR_INVALID_TYPE_ID;
           break;
         default:  //any other byte value
           if(i == (type_id_len - 1)){//valid type ID completed
@@ -161,7 +136,7 @@ PacketCommand::STATUS PacketCommand::addCommand(const byte* type_id,
             #ifdef PACKETCOMMAND_DEBUG
             Serial.println(F("Error: 'type_id' cannot have a prefix != [0xFF]*"));
             #endif
-            return ERROR_INVALID_TYPE_ID;
+            return PacketShared::ERROR_INVALID_TYPE_ID;
           }
           break;
       }
@@ -185,20 +160,20 @@ PacketCommand::STATUS PacketCommand::addCommand(const byte* type_id,
   new_command.function = function;
   _commandList[_commandCount] = new_command;
   _commandCount++;
-  return SUCCESS;
+  return PacketShared::SUCCESS;
 }
 
 /**
  * This sets up a handler to be called in the event that packet is send for
  * which a type ID cannot be matched
  */
-PacketCommand::STATUS PacketCommand::registerDefaultHandler(void (*function)(PacketCommand&)) {
+PacketShared::STATUS PacketCommand::registerDefaultHandler(void (*function)(PacketCommand&)) {
   if (function != NULL){
     _default_command.function = function;
-    return SUCCESS;
+    return PacketShared::SUCCESS;
   }
   else{
-    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+    return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
 }
 
@@ -207,13 +182,13 @@ PacketCommand::STATUS PacketCommand::registerDefaultHandler(void (*function)(Pac
  * This sets up a callback which can be used by a command handler to read a 
  * packet into its input buffer
  */
-PacketCommand::STATUS PacketCommand::registerRecvCallback(bool (*function)(PacketCommand&)){
+PacketShared::STATUS PacketCommand::registerRecvCallback(bool (*function)(PacketCommand&)){
   if (function != NULL){
     _recv_callback = function;
-    return SUCCESS;
+    return PacketShared::SUCCESS;
   }
   else{
-    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+    return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
 }
 
@@ -221,13 +196,13 @@ PacketCommand::STATUS PacketCommand::registerRecvCallback(bool (*function)(Packe
  * This sets up a callback which can be used by a command handler to send a 
  * packet from its output buffer
  */
-PacketCommand::STATUS PacketCommand::registerReplySendCallback(void (*function)(PacketCommand&)){
+PacketShared::STATUS PacketCommand::registerReplySendCallback(void (*function)(PacketCommand&)){
   if (function != NULL){
     _reply_send_callback = function;
-    return SUCCESS;
+    return PacketShared::SUCCESS;
   }
   else{
-    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+    return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
 }
 
@@ -235,13 +210,13 @@ PacketCommand::STATUS PacketCommand::registerReplySendCallback(void (*function)(
  * This sets up a callback which can be used by a command handler to send a 
  * packet from its output buffer
  */
-PacketCommand::STATUS PacketCommand::registerSendCallback(void (*function)(PacketCommand&)){
+PacketShared::STATUS PacketCommand::registerSendCallback(void (*function)(PacketCommand&)){
   if (function != NULL){
     _send_callback = function;
-    return SUCCESS;
+    return PacketShared::SUCCESS;
   }
   else{
-    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+    return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
 }
 
@@ -249,52 +224,52 @@ PacketCommand::STATUS PacketCommand::registerSendCallback(void (*function)(Packe
  * This sets up a callback which can be used by a command handler to send a 
  * packet from its output buffer
  */
-PacketCommand::STATUS PacketCommand::registerSendNonblockingCallback(void (*function)(PacketCommand&)){
+PacketShared::STATUS PacketCommand::registerSendNonblockingCallback(void (*function)(PacketCommand&)){
   if (function != NULL){
     _send_nonblocking_callback = function;
-    return SUCCESS;
+    return PacketShared::SUCCESS;
   }
   else{
-    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+    return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
 }
 
 /**
  * 
  */
-PacketCommand::STATUS PacketCommand::registerReplyRecvCallback(bool (*function)(PacketCommand&)){
+PacketShared::STATUS PacketCommand::registerReplyRecvCallback(bool (*function)(PacketCommand&)){
   if (function != NULL){
     _reply_recv_callback = function;
-    return SUCCESS;
+    return PacketShared::SUCCESS;
   }
   else{
-    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+    return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
 }
 
 /**
  * 
  */
-PacketCommand::STATUS PacketCommand::processInput(){
+PacketShared::STATUS PacketCommand::processInput(){
   #ifdef PACKETCOMMAND_DEBUG
   Serial.println(F("In PacketCommand::processInput"));
   Serial.print(F("\t_input_index="));Serial.println(_input_index);
   Serial.print(F("\t_input_len="));Serial.println(_input_len);
   #endif
-  STATUS pcs = matchCommand();
+  PacketShared::STATUS pcs = matchCommand();
   #ifdef PACKETCOMMAND_DEBUG
   Serial.println(F("(processInput)-after calling matchCommand()"));
   Serial.print(F("\t_input_index="));Serial.println(_input_index);
   Serial.print(F("\t_input_len="));Serial.println(_input_len);
   #endif
-  if (pcs == SUCCESS){  //a command was matched
+  if (pcs == PacketShared::SUCCESS){  //a command was matched
     #ifdef PACKETCOMMAND_DEBUG
     Serial.print(F("(processInput)-matched command: "));
     CommandInfo cmd = getCurrentCommand();
     Serial.println(cmd.name);
     #endif
   }
-  else if (pcs == ERROR_NO_TYPE_ID_MATCH){  //valid ID but no command was matched
+  else if (pcs == PacketShared::ERROR_NO_TYPE_ID_MATCH){  //valid ID but no command was matched
     #ifdef PACKETCOMMAND_DEBUG
     Serial.println(F("(processInput)-no matched command"));
     #endif
@@ -306,11 +281,11 @@ PacketCommand::STATUS PacketCommand::processInput(){
   }
   //dispatch to handler or default if no match
   dispatchCommand();
-  return SUCCESS;
+  return PacketShared::SUCCESS;
 }
 
 
-PacketCommand::STATUS PacketCommand::lookupCommandByName(const char* name){
+PacketShared::STATUS PacketCommand::lookupCommandByName(const char* name){
   _current_command = _default_command;
   #ifdef PACKETCOMMAND_DEBUG
   Serial.print(F("Searching for command named = "));
@@ -329,13 +304,13 @@ PacketCommand::STATUS PacketCommand::lookupCommandByName(const char* name){
        Serial.println(F("match found"));
        #endif
        _current_command = _commandList[i];
-       return SUCCESS;
+       return PacketShared::SUCCESS;
     }
   }
-  return ERROR_NO_COMMAND_NAME_MATCH;
+  return PacketShared::ERROR_NO_COMMAND_NAME_MATCH;
 }
 
-PacketCommand::STATUS PacketCommand::recv() {
+PacketShared::STATUS PacketCommand::recv() {
   bool gotPacket;
   #ifdef PACKETCOMMAND_DEBUG
   Serial.println(F("In PacketCommand::recv()"));
@@ -350,13 +325,13 @@ PacketCommand::STATUS PacketCommand::recv() {
     #ifdef PACKETCOMMAND_DEBUG
     Serial.println(F("Error: tried write using a NULL read callback function pointer"));
     #endif
-    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+    return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
   if (gotPacket){ //we have a packet
-    return SUCCESS;
+    return PacketShared::SUCCESS;
   }
   else{  //we have no packet
-    return NO_PACKET_RECEIVED;
+    return PacketShared::NO_PACKET_RECEIVED;
   }
 }
 
@@ -379,7 +354,7 @@ PacketCommand::STATUS PacketCommand::recv() {
  * following binary fields; otherwise, the packet buffer position will remain at the byte that caused 
  * the error condition.
  */
-PacketCommand::STATUS PacketCommand::matchCommand(){
+PacketShared::STATUS PacketCommand::matchCommand(){
   byte cur_byte = 0x00;
   _current_command = _default_command;
   //parse out type_id from header
@@ -388,7 +363,7 @@ PacketCommand::STATUS PacketCommand::matchCommand(){
   Serial.print(F("\t_input_index="));Serial.println(_input_index);
   Serial.print(F("\t_input_len="));Serial.println(_input_len);
   #endif
-  while(_input_index < (int) _input_len){
+  while(_input_index < _input_len){
     cur_byte = _input_buffer[_input_index];
     #ifdef PACKETCOMMAND_DEBUG
     Serial.print(F("cur_byte="));Serial.println(cur_byte,HEX);
@@ -407,20 +382,20 @@ PacketCommand::STATUS PacketCommand::matchCommand(){
         #ifdef PACKETCOMMAND_DEBUG
         Serial.println(F("Error: invalid 'type ID' detected, exceeded maximum length"));
         #endif
-        return ERROR_INVALID_TYPE_ID;
+        return PacketShared::ERROR_INVALID_TYPE_ID;
       }
-      else if (_input_index >= (int) _input_len ){  //0xFF cannot end the type_id
+      else if (_input_index >= _input_len ){  //0xFF cannot end the type_id
         #ifdef PACKETCOMMAND_DEBUG
         Serial.println(F("Error: invalid packet detected, 'type ID' does not terminate before reaching end of packet"));
         #endif
-        return ERROR_INVALID_PACKET;
+        return PacketShared::ERROR_INVALID_PACKET;
       }
     }
     else{ //must be 0x00
       #ifdef PACKETCOMMAND_DEBUG
       Serial.println(F("Error: invalid 'type ID' detected, cannot contain null (0x00) bytes"));
       #endif
-      return ERROR_INVALID_TYPE_ID;
+      return PacketShared::ERROR_INVALID_TYPE_ID;
     }
   }
   //For a valid type ID 'cur_byte' will be euqal to its last byte and all previous
@@ -429,7 +404,7 @@ PacketCommand::STATUS PacketCommand::matchCommand(){
   //since pkt_index must be < MAX_TYPE_ID_LEN at this point, it should be within
   //the bounds; and since 'cur_byte' != 0x00 as well, shorter type IDs should
   //not match since the unused bytes are initialized to 0x00.
-  for(int i=0; i <= _maxCommands; i++){
+  for(size_t i=0; i <= _maxCommands; i++){
     #ifdef PACKETCOMMAND_DEBUG
     Serial.print(F("Searching command at index="));
     Serial.println(i);
@@ -457,7 +432,7 @@ PacketCommand::STATUS PacketCommand::matchCommand(){
       #ifdef PACKETCOMMAND_DEBUG
       Serial.println(F("No match found for this packet's type ID"));
       #endif
-      return ERROR_NO_TYPE_ID_MATCH;
+      return PacketShared::ERROR_NO_TYPE_ID_MATCH;
   }
 }
 
@@ -479,106 +454,106 @@ PacketCommand::CommandInfo PacketCommand::getCurrentCommand() {
  * Execute the stored handler function for the current command,
  * passing in "this" current PacketCommandCommand object
 */
-PacketCommand::STATUS PacketCommand::dispatchCommand() {
+PacketShared::STATUS PacketCommand::dispatchCommand() {
   #ifdef PACKETCOMMAND_DEBUG
   Serial.println(F("In PacketCommand::dispatchCommand"));
   #endif
   if (_current_command.function != NULL){
     (*_current_command.function)(*this);
-    return SUCCESS;
+    return PacketShared::SUCCESS;
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
     Serial.println(F("Error: tried to dispatch a NULL handler function pointer"));
     #endif
-    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+    return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
 }
 
 //use unpack* methods to pull out data from packet
 
-PacketCommand::STATUS PacketCommand::setupOutputCommandByName(const char* name){
-  STATUS pcs;
+PacketShared::STATUS PacketCommand::setupOutputCommandByName(const char* name){
+  PacketShared::STATUS pcs;
   pcs = lookupCommandByName(name);  //sets _current_command on SUCCESS
   //reset output buffer state
-  if(pcs == SUCCESS){
+  if(pcs == PacketShared::SUCCESS){
     pcs = setupOutputCommand(_current_command);
     return pcs;
   }
   else{return pcs;}
 }
 
-PacketCommand::STATUS PacketCommand::setupOutputCommand(PacketCommand::CommandInfo command){
+PacketShared::STATUS PacketCommand::setupOutputCommand(PacketCommand::CommandInfo command){
   byte cur_byte;
-  for(int i=0;i<MAX_TYPE_ID_LEN;i++){
+  for(size_t i=0;i<MAX_TYPE_ID_LEN;i++){
       cur_byte = command.type_id[i];
       if(cur_byte == 0x00){ break;}
       pack_byte(cur_byte);
   }
-  return SUCCESS;
+  return PacketShared::SUCCESS;
 }
 
 //use pack* methods to add additional arguments to output buffer
 
 // Use the '_send_callback' to send return packet
-PacketCommand::STATUS PacketCommand::send(){
+PacketShared::STATUS PacketCommand::send(){
   if (_send_callback != NULL){
     //call the send callback
     (*_send_callback)(*this);
-    return SUCCESS;
+    return PacketShared::SUCCESS;
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
     Serial.println(F("Error: tried to send using a NULL send callback function pointer"));
     #endif
-    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+    return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
 }
 
 // Use the '_send_nonblocking_callback' to send return packet
-PacketCommand::STATUS PacketCommand::send_nonblocking(){
+PacketShared::STATUS PacketCommand::send_nonblocking(){
   if (_send_nonblocking_callback != NULL){
     //call the nonblocking send callback
     (*_send_nonblocking_callback)(*this);
-    return SUCCESS;
+    return PacketShared::SUCCESS;
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
     Serial.println(F("Error: tried to send using a NULL send nonblocking callback function pointer"));
     #endif
-    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+    return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
 }
 
 
 // Use the '_reply_send_callback' to send a quick reply
-PacketCommand::STATUS PacketCommand::reply_send(){
+PacketShared::STATUS PacketCommand::reply_send(){
   if (_reply_send_callback != NULL){
     //call the send callback
     (*_reply_send_callback)(*this);
-    return SUCCESS;
+    return PacketShared::SUCCESS;
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
     Serial.println(F("Error: tried to send using a NULL send callback function pointer"));
     #endif
-    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+    return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
 }
 
 
 // Use the '_reply_send_callback' to send a quick reply
-PacketCommand::STATUS PacketCommand::reply_recv(){
+PacketShared::STATUS PacketCommand::reply_recv(){
   if (_reply_recv_callback != NULL){
     //call the send callback
     (*_reply_recv_callback)(*this);
-    return SUCCESS;
+    return PacketShared::SUCCESS;
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
     Serial.println(F("Error: tried to receive using a NULL recv callback function pointer"));
     #endif
-    return ERROR_NULL_HANDLER_FUNCTION_POINTER;
+    return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
 }
 
@@ -587,7 +562,7 @@ PacketCommand::STATUS PacketCommand::reply_recv(){
  * Accessors and mutators for the input buffer
 */
 
-PacketCommand::STATUS PacketCommand::assignInputBuffer(byte* buff, size_t len){
+PacketShared::STATUS PacketCommand::assignInputBuffer(byte* buff, size_t len){
   #ifdef PACKETCOMMAND_DEBUG
   Serial.println(F("In PacketCommand::assignInputBuffer"));
   Serial.print(F("\tlen="));Serial.println(len);
@@ -604,14 +579,14 @@ PacketCommand::STATUS PacketCommand::assignInputBuffer(byte* buff, size_t len){
     Serial.print(F("\t_input_index="));Serial.println(_input_index);
     Serial.print(F("\t_input_len="));Serial.println(_input_len);
     #endif
-    return SUCCESS;
+    return PacketShared::SUCCESS;
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
     Serial.println(F("Error: tried to receive data that would overrun input buffer"));
     #endif
     _input_len = _inputBufferSize; //set to safe value
-    return ERROR_INPUT_BUFFER_OVERRUN;
+    return PacketShared::ERROR_INPUT_BUFFER_OVERRUN;
   }
 }
 
@@ -628,104 +603,56 @@ int PacketCommand::getInputBufferIndex(){
   return _input_index;
 }
 
-PacketCommand::STATUS PacketCommand::setInputBufferIndex(int new_index){
+PacketShared::STATUS PacketCommand::setInputBufferIndex(int new_index){
   if (new_index >= 0 && 
       new_index <  (int) _input_len + 1){
     _input_index = new_index;
-    return SUCCESS;
+    return PacketShared::SUCCESS;
   }
   else{
-    return ERROR_PACKET_INDEX_OUT_OF_BOUNDS;
+    return PacketShared::ERROR_PACKET_INDEX_OUT_OF_BOUNDS;
   }
 }
 
-PacketCommand::STATUS PacketCommand::moveInputBufferIndex(int n){
+PacketShared::STATUS PacketCommand::moveInputBufferIndex(int n){
   return setInputBufferIndex(_input_index + n);
 }
 
-PacketCommand::STATUS PacketCommand::enqueueInputBuffer(){
+PacketShared::STATUS PacketCommand::enqueueInputBuffer(PacketQueue& pq){
   #ifdef PACKETCOMMAND_DEBUG
   Serial.println(F("In PacketCommand::enqueueInputBuffer"));
   #endif
-  noInterrupts(); //ensure that queue operations are consistent
-  if (_input_queue_index + 1 < _inputQueueSize){
-    _input_queue_index++;
-    struct Packet *pkt = _input_queue[_input_queue_index];
-    #ifdef PACKETCOMMAND_DEBUG
-    Serial.print(F("\tqueueing at index:"));Serial.println(_input_queue_index);
-    Serial.print(F(" copying data: "));
-    #endif
-    //copy the current input buffer to the new packet
-    for(int i=0; i < _input_len; i++){
-      #ifdef PACKETCOMMAND_DEBUG
-      Serial.print(_input_buffer[i], HEX);Serial.print(F(" "));
-      #endif
-      pkt->data[i] = _input_buffer[i];
-    }
-    pkt->length = _input_len; //update length field
-    pkt->flags  = 0x00;
-    #ifdef PACKETCOMMAND_DEBUG
-    Serial.println();
-    #endif
-    interrupts(); //restore interrupts
-    return SUCCESS;
-  }
-  else{
-    #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("\t### Error: Queue Overflow"));
-    #endif
-    interrupts(); //restore interrupts
-    return ERROR_QUEUE_OVERFLOW;
-  }
+  //build a packet struct to hold current buffer state
+  PacketShared::Packet pkt;
+  pkt.length = min(_input_len, PacketShared::DATA_BUFFER_SIZE);
+  pkt.flags  = _input_flags;
+  memcpy(pkt.data, _input_buffer, pkt.length);
+  PacketShared::STATUS pqs;
+  pqs = pq.enqueue(pkt);
+  return pqs;
 }
 
-PacketCommand::STATUS PacketCommand::dequeueInputBuffer(){
+PacketShared::STATUS PacketCommand::dequeueInputBuffer(PacketQueue& pq){
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("In PacketCommand::dequeueInputBuffer (ENTER)"));
+  Serial.println(F("In PacketCommand::dequeueInputBuffer"));
   #endif
-  noInterrupts(); //ensure that queue operations are consistent
-  if (_input_queue_index >= 0){
-    //grab the first packet
-    struct Packet *pkt = _input_queue[0];
-    #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F(" \tdequeueing from the front"));
-    //Serial.print(F(" \tflags="));Serial.println(pkt->flags, HEX);
-    Serial.print(F(" \tcopying data: "));
-    #endif
-    //copy the packet to the current input buffer
-    for(int i=0; (i < pkt->length) && (i < _inputBufferSize); i++){
-      #ifdef PACKETCOMMAND_DEBUG
-      Serial.print(pkt->data[i], HEX);Serial.print(F(" "));
-      #endif
-      _input_buffer[i] = pkt->data[i];
-    }
-    //restore buffer state
+  //build a packet struct to hold current buffer state
+  PacketShared::Packet pkt;
+  PacketShared::STATUS pqs;
+  pqs = pq.dequeue(pkt);
+  if(pqs == PacketShared::SUCCESS){
     _input_index = 0;
-    _input_len   = min(pkt->length,_inputBufferSize);
-    _input_flags = pkt->flags;
-    //move queue elements down
-    for(int j=1; j < _inputQueueSize; j++){
-      _input_queue[j-1] = _input_queue[j];
-    }
-    //reuse the first pointer at last slot of the queue
-    _input_queue[_inputQueueSize-1] = pkt;
-    _input_queue_index--;
-    #ifdef PACKETCOMMAND_DEBUG
-    Serial.println();
-    Serial.println(F("(dequeueInputBuffer) after copy"));
-    Serial.print(F("\t_input_index="));Serial.println(_input_index);
-    Serial.print(F("\t_input_len="));Serial.println(_input_len);
-    Serial.print(F("\t_input_queue_index="));Serial.println(_input_queue_index);
-    #endif
-    interrupts(); //restore interrupts
-    return SUCCESS;
+    _input_len = min(pkt.length, _inputBufferSize);
+    _input_flags = pkt.flags;
+    memcpy(_input_buffer, pkt.data, _input_len);
+    return PacketShared::SUCCESS;
   }
   else{
-     #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("\t### Error: Queue Underflow"));
-    #endif
-    interrupts(); //restore interrupts
-    return ERROR_QUEUE_UNDERFLOW;
+    //zero out on failure
+    _input_index = 0;
+    _input_len   = 0;
+    _input_flags = 0x00;
+    return pqs;
   }
 }
 
@@ -737,177 +664,99 @@ int PacketCommand::getOutputBufferIndex(){
   return _output_index;
 }
 
-PacketCommand::STATUS PacketCommand::setOutputBufferIndex(int new_index){
+PacketShared::STATUS PacketCommand::setOutputBufferIndex(int new_index){
   if (new_index >= 0 && 
       new_index <  (int) _outputBufferSize + 1){
     _output_index = new_index;
     if(_output_index > _output_len){ //adjust output len up
       _output_len = _output_index;
     }
-    return SUCCESS;
+    return PacketShared::SUCCESS;
   }
   else{
-    return ERROR_PACKET_INDEX_OUT_OF_BOUNDS;
+    return PacketShared::ERROR_PACKET_INDEX_OUT_OF_BOUNDS;
   }
 }
 
-PacketCommand::STATUS PacketCommand::moveOutputBufferIndex(int n){
+PacketShared::STATUS PacketCommand::moveOutputBufferIndex(int n){
   return setOutputBufferIndex(_output_index + n);
 }
 
-PacketCommand::STATUS PacketCommand::enqueueOutputBuffer(){
+PacketShared::STATUS PacketCommand::enqueueOutputBuffer(PacketQueue& pq){
   #ifdef PACKETCOMMAND_DEBUG
   Serial.println(F("In PacketCommand::enqueueOutputBuffer"));
-  Serial.print(F("\t_output_queue_index="));Serial.println(_output_queue_index);
-  Serial.print(F("\t_outputQueueSize="));Serial.println(_outputQueueSize);
   #endif
-  noInterrupts(); //ensure that queue operations are consistent
-  if (_output_queue_index + 1 < _outputQueueSize){
-    _output_queue_index++;
-    #ifdef PACKETCOMMAND_DEBUG
-    Serial.print(F("\tqueueing at index:"));Serial.println(_output_queue_index);
-    Serial.print(F(" copying data: "));
-    #endif
-    struct Packet *pkt = _output_queue[_output_queue_index];
-    //copy the current output buffer to the new packet
-    for(int i=0; i < _output_len; i++){
-      #ifdef PACKETCOMMAND_DEBUG
-      Serial.print(_output_buffer[i], HEX);Serial.print(F(" "));
-      #endif
-      pkt->data[i] = _output_buffer[i];
-    }
-    pkt->length   = _output_len; //update length field
-    //pkt->is_query = _output_is_query; 
-    #ifdef PACKETCOMMAND_DEBUG
-    Serial.println();
-    #endif
-    interrupts(); //restore interrupts
-    return SUCCESS;
-  }
-  else{
-    #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("\t### Error: Queue Overflow"));
-    #endif
-    interrupts(); //restore interrupts
-    return ERROR_QUEUE_OVERFLOW;
-  }
+  //build a packet struct to hold current buffer state
+  PacketShared::Packet pkt;
+  pkt.length = min(_output_len, PacketShared::DATA_BUFFER_SIZE);
+  pkt.flags  = _output_flags;
+  memcpy(pkt.data, _output_buffer, pkt.length);
+  PacketShared::STATUS pqs;
+  pqs = pq.enqueue(pkt);
+  return pqs;
 }
 
-PacketCommand::STATUS PacketCommand::dequeueOutputBuffer(){
+PacketShared::STATUS PacketCommand::dequeueOutputBuffer(PacketQueue& pq){
   #ifdef PACKETCOMMAND_DEBUG
   Serial.println(F("In PacketCommand::dequeueOutputBuffer"));
   #endif
-  noInterrupts(); //ensure that queue operations are consistent
-  if (_output_queue_index >= 0){
-    #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("\tdequeueing from the front"));
-    Serial.print(F(" copying data: "));
-    #endif
-    //grab the first packet
-    struct Packet *pkt = _output_queue[0];
-    //copy the packet to the current output buffer
-    for(int i=0; (i < pkt->length) && (i < _outputBufferSize); i++){
-      #ifdef PACKETCOMMAND_DEBUG
-      Serial.print(pkt->data[i], HEX);Serial.print(F(" "));
-      #endif
-      _output_buffer[i] = pkt->data[i];
-    }
-    //restore buffer state
+  //build a packet struct to hold current buffer state
+  PacketShared::Packet pkt;
+  PacketShared::STATUS pqs;
+  pqs = pq.dequeue(pkt);
+  if(pqs == PacketShared::SUCCESS){
     _output_index = 0;
-    _output_len = min(pkt->length,_outputBufferSize);
-    _output_flags = pkt->flags;
-    //_output_is_query = pkt->is_query;
-    //move queue elements down
-    for(int j=1; j < _outputQueueSize; j++){
-      _output_queue[j-1] = _output_queue[j];
-    }
-
-    //reuse the first pointer at last slot of the queue
-    _output_queue[_outputQueueSize-1] = pkt;
-    _output_queue_index--;
-    #ifdef PACKETCOMMAND_DEBUG
-    Serial.println();
-    Serial.println(F("(dequeueOutputBuffer) after copy"));
-    Serial.print(F("\t_output_index="));Serial.println(_output_index);
-    Serial.print(F("\t_output_len="));Serial.println(_output_len);
-    Serial.print(F("\t_output_queue_index="));Serial.println(_output_queue_index);
-    #endif
-    interrupts(); //restore interrupts
-    return SUCCESS;
+    _output_len = min(pkt.length, _outputBufferSize);
+    _output_flags = pkt.flags;
+    memcpy(_output_buffer, pkt.data, _input_len);
+    return PacketShared::SUCCESS;
   }
   else{
-     #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("\t### Error: Queue Underflow"));
-    #endif
-    interrupts(); //restore interrupts
-    return ERROR_QUEUE_UNDERFLOW;
+    //zero out on failure
+    _output_index = 0;
+    _output_len = 0;
+    _output_flags = 0x00;
+    return pqs;
   }
 }
 
-
-PacketCommand::STATUS PacketCommand::requeueOutputBuffer(){
+PacketShared::STATUS PacketCommand::requeueOutputBuffer(PacketQueue& pq){
   //pushes output buffer onto the front of the queue
   #ifdef PACKETCOMMAND_DEBUG
   Serial.println(F("In PacketCommand::requeueOutputBuffer"));
-  Serial.print(F("\t_output_queue_index="));Serial.println(_output_queue_index);
-  Serial.print(F("\t_outputQueueSize="));Serial.println(_outputQueueSize);
   #endif
-  noInterrupts(); //ensure that queue operations are consistent
-  if (_output_queue_index + 1 < _outputQueueSize){
-    _output_queue_index++;
-    //move queue elements up
-    for(int j=0; j < _outputQueueSize - 1; j++){
-      _output_queue[j+1] = _output_queue[j];
-    }
-    //grab the front slot of the queue
-    struct Packet *pkt = _output_queue[0];
-    //copy the current output buffer to the packet slot
-    for(int i=0; i < _output_len; i++){
-      pkt->data[i] = _output_buffer[i];
-    }
-    pkt->length = _output_len; //update length field
-    pkt->flags  = _output_flags;
-    #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("(requeueOutputBuffer) after copy"));
-    Serial.print(F("\t_output_index="));Serial.println(_output_index);
-    Serial.print(F("\t_output_len="));Serial.println(_output_len);
-    Serial.print(F("\t_output_queue_index="));Serial.println(_output_queue_index);
-    #endif
-    interrupts(); //restore interrupts
-    return SUCCESS;
-  }
-  else{
-    #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("\t### Error: Queue Overflow"));
-    #endif
-    interrupts(); //restore interrupts
-    return ERROR_QUEUE_OVERFLOW;
-  }
+  //build a packet struct to hold current buffer state
+  PacketShared::Packet pkt;
+  pkt.length = min(_output_len, PacketShared::DATA_BUFFER_SIZE);
+  pkt.flags  = _output_flags;
+  memcpy(pkt.data, _output_buffer, pkt.length);
+  PacketShared::STATUS pqs;
+  pqs = pq.requeue(pkt);
+  return pqs;
 }
-
 
 /******************************************************************************/
 // Byte field unpacking methods from input buffer
 /******************************************************************************/
 //bytes and chars
-PacketCommand::STATUS PacketCommand::unpack_byte(byte& varByRef){
+PacketShared::STATUS PacketCommand::unpack_byte(byte& varByRef){
   varByRef = *((byte*)(_input_buffer+_input_index));
   return moveInputBufferIndex(sizeof(byte));
 }
 
-PacketCommand::STATUS PacketCommand::unpack_byte_array(byte* buffer, int len){
+PacketShared::STATUS PacketCommand::unpack_byte_array(byte* buffer, int len){
   for(int i=0; i < len; i++){
     buffer[i] = _input_buffer[_input_index + i];
   }
   return moveInputBufferIndex(len*sizeof(byte)); //FIXME should be len-1?
 }
 
-PacketCommand::STATUS PacketCommand::unpack_char(char& varByRef){
+PacketShared::STATUS PacketCommand::unpack_char(char& varByRef){
   varByRef = *((char*)(_input_buffer+_input_index));
   return moveInputBufferIndex(sizeof(char));
 }
 
-PacketCommand::STATUS PacketCommand::unpack_char_array(char* buffer, int len){
+PacketShared::STATUS PacketCommand::unpack_char_array(char* buffer, int len){
   for(int i=0; i < len; i++){
     buffer[i] = _input_buffer[_input_index + i];
   }
@@ -915,64 +764,64 @@ PacketCommand::STATUS PacketCommand::unpack_char_array(char* buffer, int len){
 }
 
 //stdint types
-PacketCommand::STATUS PacketCommand::unpack_int8(int8_t& varByRef){
+PacketShared::STATUS PacketCommand::unpack_int8(int8_t& varByRef){
   varByRef = *((int8_t*)(_input_buffer + _input_index));
   return moveInputBufferIndex(sizeof(int8_t));
 }
 
-PacketCommand::STATUS PacketCommand::unpack_uint8(uint8_t& varByRef){
+PacketShared::STATUS PacketCommand::unpack_uint8(uint8_t& varByRef){
   varByRef = *((uint8_t*)(_input_buffer + _input_index));
   return moveInputBufferIndex(sizeof(uint8_t));
 }
 
-PacketCommand::STATUS PacketCommand::unpack_int16(int16_t& varByRef){
+PacketShared::STATUS PacketCommand::unpack_int16(int16_t& varByRef){
   varByRef = *((int16_t*)(_input_buffer + _input_index));
   return moveInputBufferIndex(sizeof(int16_t));
 }
 
-PacketCommand::STATUS PacketCommand::unpack_uint16(uint16_t& varByRef){
+PacketShared::STATUS PacketCommand::unpack_uint16(uint16_t& varByRef){
   varByRef = *((uint16_t*)(_input_buffer + _input_index));
   return moveInputBufferIndex(sizeof(uint16_t));
 }
 
-PacketCommand::STATUS PacketCommand::unpack_int32(int32_t& varByRef){
+PacketShared::STATUS PacketCommand::unpack_int32(int32_t& varByRef){
   varByRef = *((int32_t*)(_input_buffer + _input_index));
   return moveInputBufferIndex(sizeof(int32_t));
 }
 
-PacketCommand::STATUS PacketCommand::unpack_uint32(uint32_t& varByRef){
+PacketShared::STATUS PacketCommand::unpack_uint32(uint32_t& varByRef){
   varByRef = *((uint32_t*)(_input_buffer + _input_index));
   return moveInputBufferIndex(sizeof(uint32_t));
 }
 
-PacketCommand::STATUS PacketCommand::unpack_int64(int64_t& varByRef){
+PacketShared::STATUS PacketCommand::unpack_int64(int64_t& varByRef){
   varByRef = *((int64_t*)(_input_buffer + _input_index));
   return moveInputBufferIndex(sizeof(int64_t));
 }
 
-PacketCommand::STATUS PacketCommand::unpack_uint64(uint64_t& varByRef){
+PacketShared::STATUS PacketCommand::unpack_uint64(uint64_t& varByRef){
   varByRef = *((uint64_t*)(_input_buffer + _input_index));
   return moveInputBufferIndex(sizeof(uint64_t));
 }
 
 //floating point
 
-PacketCommand::STATUS PacketCommand::unpack_float(float& varByRef){
+PacketShared::STATUS PacketCommand::unpack_float(float& varByRef){
   varByRef = *((float*)(_input_buffer + _input_index));
   return moveInputBufferIndex(sizeof(float));
 }
 
-PacketCommand::STATUS PacketCommand::unpack_double(double& varByRef){
+PacketShared::STATUS PacketCommand::unpack_double(double& varByRef){
   varByRef = *((double*)(_input_buffer + _input_index));
   return moveInputBufferIndex(sizeof(double));
 }
 
-PacketCommand::STATUS PacketCommand::unpack_float32(float32_t& varByRef){
+PacketShared::STATUS PacketCommand::unpack_float32(float32_t& varByRef){
   varByRef = *((float32_t*)(_input_buffer + _input_index));
   return moveInputBufferIndex(sizeof(float32_t));
 }
 
-PacketCommand::STATUS PacketCommand::unpack_float64(float64_t& varByRef){
+PacketShared::STATUS PacketCommand::unpack_float64(float64_t& varByRef){
   varByRef = *((float64_t*)(_input_buffer + _input_index));
   return moveInputBufferIndex(sizeof(float64_t));
 }
@@ -982,85 +831,85 @@ PacketCommand::STATUS PacketCommand::unpack_float64(float64_t& varByRef){
 /******************************************************************************/
 
 //bytes and chars
-PacketCommand::STATUS PacketCommand::pack_byte(byte value){
+PacketShared::STATUS PacketCommand::pack_byte(byte value){
   memcpy( (_output_buffer + _output_index), &value, sizeof(byte));
   return moveOutputBufferIndex(sizeof(byte));
 }
 
-PacketCommand::STATUS PacketCommand::pack_byte_array(byte* buffer, int len){
+PacketShared::STATUS PacketCommand::pack_byte_array(byte* buffer, int len){
   memcpy( (_output_buffer + _output_index), buffer, len*sizeof(byte)); //FIXME should be len-1?
   return moveOutputBufferIndex(len*sizeof(byte));
 }
 
-PacketCommand::STATUS PacketCommand::pack_char(char value){
+PacketShared::STATUS PacketCommand::pack_char(char value){
   memcpy( (_output_buffer + _output_index), &value, sizeof(char));
   return moveOutputBufferIndex(sizeof(char));
 }
 
-PacketCommand::STATUS PacketCommand::pack_char_array(char* buffer, int len){
+PacketShared::STATUS PacketCommand::pack_char_array(char* buffer, int len){
   memcpy( (_output_buffer + _output_index), buffer, len*sizeof(char));
   return moveOutputBufferIndex(len*sizeof(char)); //FIXME should be len-1?
 }
 
 //stdint types
-PacketCommand::STATUS PacketCommand::pack_int8(int8_t value){
+PacketShared::STATUS PacketCommand::pack_int8(int8_t value){
   memcpy( (_output_buffer + _output_index), &value, sizeof(int8_t));
   return moveOutputBufferIndex(sizeof(int8_t));
 }
 
-PacketCommand::STATUS PacketCommand::pack_uint8(uint8_t value){
+PacketShared::STATUS PacketCommand::pack_uint8(uint8_t value){
   memcpy( (_output_buffer + _output_index), &value, sizeof(uint8_t));
   return moveOutputBufferIndex(sizeof(uint8_t));
 }
 
-PacketCommand::STATUS PacketCommand::pack_int16(int16_t value){
+PacketShared::STATUS PacketCommand::pack_int16(int16_t value){
   memcpy( (_output_buffer + _output_index), &value, sizeof(int16_t));
   return moveOutputBufferIndex(sizeof(int16_t));
 }
 
-PacketCommand::STATUS PacketCommand::pack_uint16(uint16_t value){
+PacketShared::STATUS PacketCommand::pack_uint16(uint16_t value){
   memcpy( (_output_buffer + _output_index), &value, sizeof(uint16_t));
   return moveOutputBufferIndex(sizeof(uint16_t));
 }
 
-PacketCommand::STATUS PacketCommand::pack_int32(int32_t value){
+PacketShared::STATUS PacketCommand::pack_int32(int32_t value){
   memcpy( (_output_buffer + _output_index), &value, sizeof(int32_t));
   return moveOutputBufferIndex(sizeof(int32_t));
 }
 
-PacketCommand::STATUS PacketCommand::pack_uint32(uint32_t value){
+PacketShared::STATUS PacketCommand::pack_uint32(uint32_t value){
   memcpy( (_output_buffer + _output_index), &value, sizeof(uint32_t));
   return moveOutputBufferIndex(sizeof(uint32_t));
 }
 
-PacketCommand::STATUS PacketCommand::pack_int64(int64_t value){
+PacketShared::STATUS PacketCommand::pack_int64(int64_t value){
   memcpy( (_output_buffer + _output_index), &value, sizeof(int64_t));
   return moveOutputBufferIndex(sizeof(int64_t));
 }
 
-PacketCommand::STATUS PacketCommand::pack_uint64(uint64_t value){
+PacketShared::STATUS PacketCommand::pack_uint64(uint64_t value){
   memcpy( (_output_buffer + _output_index), &value, sizeof(uint64_t));
   return moveOutputBufferIndex(sizeof(uint64_t));
 }
 
 //floating point
 
-PacketCommand::STATUS PacketCommand::pack_float(float value){
+PacketShared::STATUS PacketCommand::pack_float(float value){
   memcpy( (_output_buffer + _output_index), &value, sizeof(float));
   return moveOutputBufferIndex(sizeof(float));
 }
 
-PacketCommand::STATUS PacketCommand::pack_double(double value){
+PacketShared::STATUS PacketCommand::pack_double(double value){
   memcpy( (_output_buffer + _output_index), &value, sizeof(double));
   return moveOutputBufferIndex(sizeof(double));
 }
 
-PacketCommand::STATUS PacketCommand::pack_float32(float32_t value){
+PacketShared::STATUS PacketCommand::pack_float32(float32_t value){
   memcpy( (_output_buffer + _output_index), &value, sizeof(float32_t));
   return moveOutputBufferIndex(sizeof(float32_t));
 }
 
-PacketCommand::STATUS PacketCommand::pack_float64(float64_t value){
+PacketShared::STATUS PacketCommand::pack_float64(float64_t value){
   memcpy( (_output_buffer + _output_index), &value, sizeof(float64_t));
   return moveOutputBufferIndex(sizeof(float64_t));
 }
