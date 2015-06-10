@@ -24,8 +24,7 @@ void print_hex(byte* pkt, size_t len){
 SerialCommand sCmd(Serial,MAX_COMMANDS);         // The demo PacketCommand object, initialize with any Stream object
 
 #define PQ_CAPACITY 3
-#define PQ_DATA_BUFFER_SIZE 32
-PacketQueue pQ(PQ_CAPACITY,PQ_DATA_BUFFER_SIZE);
+PacketQueue pQ(PQ_CAPACITY);
 
 //global test packet
 PacketQueue::Packet test_pkt;
@@ -48,17 +47,18 @@ void setup() {
   sCmd.addCommand("LED.OFF",    LED_OFF_sCmd_action_handler);           // Turns LED off
   
   // Testing function for the PacketQueue object
-  sCmd.addCommand("PQ.ENQ", PQ_ENQ_sCmd_action_handler); //enqueue a string
-  sCmd.addCommand("PQ.DEQ", PQ_DEQ_sCmd_action_handler); //enqueue a string
-  sCmd.addCommand("PQ.REQ", PQ_REQ_sCmd_action_handler); //enqueue a string
+  sCmd.addCommand("PQ.RESET", PQ_RESET_sCmd_action_handler); //reset queue state
+  sCmd.addCommand("PQ.ENQ", PQ_ENQ_sCmd_action_handler);     //enqueue a string
+  sCmd.addCommand("PQ.DEQ", PQ_DEQ_sCmd_action_handler);     //dequeue packet
+  sCmd.addCommand("PQ.REQ", PQ_REQ_sCmd_action_handler);     //requeue a string
   
-  //prepare a test packet
-  test_pkt.data = (byte*) calloc(PQ_DATA_BUFFER_SIZE,sizeof(byte));
-  test_pkt.length = 5;
-  test_pkt.flags  = PacketQueue::PFLAG_IS_QUERY;
-  for(int i=0; i < test_pkt.length;i++){
-    test_pkt.data[i] = i+1;
-  }
+/*  //prepare a test packet*/
+/*  test_pkt.data = (byte*) calloc(PQ_DATA_BUFFER_SIZE,sizeof(byte));*/
+/*  test_pkt.length = 5;*/
+/*  test_pkt.flags  = PacketQueue::PFLAG_IS_QUERY;*/
+/*  for(int i=0; i < test_pkt.length;i++){*/
+/*    test_pkt.data[i] = i+1;*/
+/*  }*/
 }
 
 void loop() {
@@ -75,6 +75,23 @@ void LED_OFF_sCmd_action_handler(SerialCommand this_sCmd) {
   digitalWrite(arduinoLED, LOW);
 }
 
+void PQ_RESET_sCmd_action_handler(SerialCommand this_sCmd) {
+  this_sCmd.println(F("---"));
+  this_sCmd.println(F("cmd: PQ_RESET_sCmd_action_handler"));
+  char *arg = this_sCmd.next();
+  if (arg == NULL){
+    PacketQueue::STATUS pqs;
+    pqs = pQ.reset();
+    this_sCmd.print(F("pqs: "));this_sCmd.println(pqs);
+    this_sCmd.println();
+  }
+  else{
+    this_sCmd.print(F("### Error: PQ.RESET requires no arguments\n"));
+  }
+  this_sCmd.println(F("..."));
+}
+
+
 void PQ_ENQ_sCmd_action_handler(SerialCommand this_sCmd) {
   this_sCmd.println(F("---"));
   this_sCmd.println(F("cmd: PQ_ENQ_sCmd_action_handler"));
@@ -83,13 +100,14 @@ void PQ_ENQ_sCmd_action_handler(SerialCommand this_sCmd) {
     this_sCmd.print(F("### Error: PQ.ENQ requires 1 argument (str data)\n"));
   }
   else{
-    size_t len = min(strlen(arg), PQ_DATA_BUFFER_SIZE);
+    size_t len = min(strlen(arg), PacketQueue::DATA_BUFFER_SIZE);
     this_sCmd.print(F("arg: "));this_sCmd.println(arg);
     this_sCmd.print(F("len: "));this_sCmd.println(len);
     PacketQueue::STATUS pqs;
     PacketQueue::Packet pkt;
     pkt.length = len;
-    pkt.data   = (byte*) arg;
+    //pkt.data   = (byte*) arg;
+    memcpy(pkt.data,arg,len);
     pqs = pQ.enqueue(pkt);
     this_sCmd.print(F("pqs: "));this_sCmd.println(pqs);
   }
@@ -126,13 +144,14 @@ void PQ_REQ_sCmd_action_handler(SerialCommand this_sCmd) {
     this_sCmd.print(F("### Error: PQ.REQ requires 1 argument (str data)\n"));
   }
   else{
-    size_t len = min(strlen(arg), PQ_DATA_BUFFER_SIZE);
+    size_t len = min(strlen(arg), PacketQueue::DATA_BUFFER_SIZE);
     this_sCmd.print(F("arg: "));this_sCmd.println(arg);
     this_sCmd.print(F("len: "));this_sCmd.println(len);
     PacketQueue::STATUS pqs;
     PacketQueue::Packet pkt;
     pkt.length = len;
-    pkt.data   = (byte*) arg;
+    //pkt.data   = (byte*) arg;
+    memcpy(pkt.data,arg,len);
     pqs = pQ.requeue(pkt);
     this_sCmd.print(F("pqs: "));this_sCmd.println(pqs);
   }

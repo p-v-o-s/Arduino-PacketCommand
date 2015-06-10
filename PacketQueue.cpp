@@ -4,32 +4,43 @@
 #include <Arduino.h>
 #include "PacketQueue.h"
 
-PacketQueue::PacketQueue(size_t capacity, size_t dataBufferSize)
+PacketQueue::PacketQueue(size_t capacity)
   : _beg_index(0)
   , _end_index(0)
   , _size(0)
   , _capacity(capacity)
-  , _dataBufferSize(dataBufferSize)
+  , _dataBufferSize(DATA_BUFFER_SIZE)
 {
   //preallocate memory for all the slots
-  _slots = (Packet**) calloc(_capacity, sizeof(Packet*));
+  _slots = (Packet*) calloc(_capacity, sizeof(Packet));
+  Packet *pkt_slot;
   for(size_t i=0; i < _capacity; i++){
-    Packet *pkt_slot = (Packet*) calloc(1, sizeof(Packet));
-    pkt_slot->data   = (byte*) calloc(_dataBufferSize, sizeof(byte));
+    pkt_slot = &(_slots[i]); //pull out the slot by address
+    //pkt_slot->data = (byte*) calloc(_dataBufferSize, sizeof(byte));
     pkt_slot->length = 0;
     pkt_slot->flags  = 0x00;
-    _slots[i] = pkt_slot;
   }
 }
 
 PacketQueue::~PacketQueue()
 {
+  Packet *pkt_slot;
   for(size_t i=0; i < _capacity; i++){
-    Packet *pkt_slot = _slots[i];
-    free(pkt_slot->data);
-    free(pkt_slot);
+    pkt_slot = &(_slots[i]); //pull out the slot by address
+    //free(pkt_slot->data);
   }
   free(_slots);
+}
+
+PacketQueue::STATUS PacketQueue::reset()
+{
+  #ifdef PACKETQUEUE_DEBUG
+  Serial.println(F("# In PacketQueue::reset"));
+  #endif
+  _size= 0;
+  _beg_index = 0;
+  _end_index = 0;
+  return SUCCESS;
 }
 
 PacketQueue::STATUS PacketQueue::enqueue(PacketQueue::Packet& pkt)
@@ -78,6 +89,7 @@ PacketQueue::STATUS PacketQueue::dequeue(PacketQueue::Packet& pkt)
     #ifdef PACKETQUEUE_DEBUG
     Serial.println(F("### Error: Queue Underflow"));
     #endif
+    pkt.length = 0; //set to safe value
     return ERROR_QUEUE_UNDERFLOW;
   }
 }
@@ -112,8 +124,7 @@ PacketQueue::STATUS PacketQueue::requeue(PacketQueue::Packet& pkt)
 
 void PacketQueue::_put_at(size_t index, PacketQueue::Packet& pkt)
 {
-  //pull out the slot
-  struct Packet *pkt_slot = _slots[index];
+  Packet *pkt_slot = &(_slots[index]); //pull out the slot by address
   #ifdef PACKETQUEUE_DEBUG
   Serial.println(F("# In PacketQueue::_put_at"));
   Serial.print(F("# \tindex="));Serial.println(index);
@@ -137,8 +148,7 @@ void PacketQueue::_put_at(size_t index, PacketQueue::Packet& pkt)
 
 void PacketQueue::_get_from(size_t index, PacketQueue::Packet& pkt)
 {
-  //pull out the slot
-  struct Packet *pkt_slot = _slots[index];
+  Packet *pkt_slot = &(_slots[index]); //pull out the slot by address
   #ifdef PACKETQUEUE_DEBUG
   Serial.println(F("# In PacketQueue::_get_from"));
   Serial.print(F("# \tindex="));Serial.println(index);

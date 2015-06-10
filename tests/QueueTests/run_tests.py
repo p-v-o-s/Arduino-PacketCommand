@@ -1,75 +1,41 @@
-import serial, time, struct
-s = serial.Serial("/dev/ttyACM0", baudrate=9600)
-#-------------------------------------------------------------------------------
-#easy to type data
-print "-"*80
-#type ID 0x41 -> LED_on
-print "testing type ID 0x41 -> LED_on:"
-pkt = "A123456789"
-print "writing packet: \"%s\"" % pkt
-s.write(pkt)
-print "reading line:", s.readline().strip()
-print "reading line:", s.readline().strip()
-time.sleep(1.0) #pause so you can see blinky!
-print "-"*80
+import unittest, glob
+import serial, yaml
 
-#type ID 0x42 -> LED_off
-print "testing type ID 0x42 -> LED_off:"
-pkt = "B123456789"
-print "writing packet: \"%s\"" % pkt
-s.write(pkt)
-print "reading line:", s.readline().strip()
-print "reading line:", s.readline().strip()
-print "-"*80
+SERIAL_PORT_PATTERN = "/dev/ttyACM*"
+SERIAL_BAUDRATE = 9600
 
-#type ID 0x43 -> handle_int
-print "testing type ID 0x43 -> handle_int:"
-pkt = "CAAAA56789"
-print "writing packet: \"%s\"" % pkt
-s.write(pkt)
-print "reading line:", s.readline().strip()
-print "reading line:", s.readline().strip()
-print 'evaluating "struct.unpack("i","AAAA")":', struct.unpack("i","AAAA")
-print "-"*80
 
-#type ID 0x44 -> handle_float
-print "testing type ID 0x44 -> handle_float:"
-pkt = "DAAAA56789"
-print "writing packet: \"%s\"" % pkt
-s.write(pkt)
-print "reading line:", s.readline().strip()
-print "reading line:", s.readline().strip()
-print 'evaluating "struct.unpack("f","AAAA")":', struct.unpack("f","AAAA")  #eh... close enough for Arduino's 1 decimal place rounding
-print "-"*80
+class SerialCommandDrivenTest(unittest.TestCase):
+    def setUp(self):
+        port = sorted(glob.glob(SERIAL_PORT_PATTERN))[0]
+        print "opening serial port: %s" % port
+        self.ser = serial.Serial(port, baudrate=SERIAL_BAUDRATE)
+    def tearDown(self):
+        print "closing serial port"
+        self.ser.close()
+    def _send(self, cmd):
+        self.ser.write("%s\n" % cmd.strip())
+    def _parse_resp(self):
+        buff = []
+        while True:
+          line = self.ser.readline().strip()
+          buff.append(line)
+          print "<---%s" % line
+          if line == '...':
+            break
+        buff = "\n".join(buff)
+        return yaml.load_all(buff)
+    def testEnqueueDequeue(self):
+        pkts = ['test1','test2','test3','abcedefghijklmnopqrstuvwxyz','A'*32]
+        for pkt in pkts:
+          self._send("PQ.ENQ %s" % pkt)
+          resp = self._parse_resp().next()
+          self.assertEqual(resp['pcs'],0) #check for error codes
+          self._send("PQ.DEQ")
+          resp = self._parse_resp().next()
+          self.assertEqual(resp['pcs'],0)               #check for error codes
+          self.assertEqual(resp['pkt.length'],len(pkt)) #check for size integrity
+          self.assertEqual(resp['pkt.data'],pkt)        #check for data integrity
 
-#type ID 0x45 -> handle_char_array
-print "testing type ID 0x45 -> handle_char_array:"
-pkt = "E123456789"
-print "writing packet: \"%s\"" % pkt
-s.write(pkt)
-print "reading line:", s.readline().strip()
-print "reading line:", s.readline().strip()
-print "-"*80
-
-#type ID 0x46 -> unrecognized (default handler)
-print "testing type ID 0x46 -> unrecognized (default handler):"
-pkt = "F123456789"
-print "writing packet: \"%s\"" % pkt
-s.write(pkt)
-print "reading line:", s.readline().strip()
-print "reading line:", s.readline().strip()
-print "-"*80
-
-#-------------------------------------------------------------------------------
-#"unprintable" data
-#type ID 0xFF01 -> handle_int_float
-print "testing type ID 0xFF01 -> handle_int_float:"
-pkt = "\xff\x01\xff\xff\xff\xfe\x00\x00\x00\xbf"
-print "writing packet: %r" % pkt
-s.write(pkt)
-print "reading line:", s.readline().strip()
-print "reading line:", s.readline().strip()
-print "reading line:", s.readline().strip()
-print r'evaluating: struct.unpack("i","\xff\xff\xff\xfe") ==', struct.unpack("i","\xff\xff\xff\xfe")
-print r'evaluating: struct.unpack("i","\x00\x00\x00\xbf") ==', struct.unpack("f","\x00\x00\x00\xbf")
-print "-"*80
+if __name__ == "__main__":
+    unittest.main()

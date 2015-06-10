@@ -9,6 +9,7 @@
 class PacketQueue
 {
 public:
+  static const size_t DATA_BUFFER_SIZE = 32;
   // Status and Error  Codes
   typedef enum StatusCode {
     SUCCESS = 0,
@@ -29,16 +30,17 @@ public:
   };
   // Packet structure
   struct Packet {
-    byte*    data;
+    byte    data[DATA_BUFFER_SIZE];
     size_t  length;
     byte    flags;
   };
 
-  PacketQueue(size_t capacity, size_t dataBufferSize);
+  PacketQueue(size_t capacity);
   ~PacketQueue();
 
   size_t size() const { return _size; }
   size_t capacity() const { return _capacity; }
+  STATUS reset();
   STATUS enqueue(Packet& pkt);
   STATUS dequeue(Packet& pkt);
   STATUS requeue(Packet& pkt);
@@ -54,7 +56,7 @@ private:
   size_t _size; 
   size_t _capacity;
   size_t _dataBufferSize;
-  Packet** _slots;
+  Packet* _slots;
   
 };
 
