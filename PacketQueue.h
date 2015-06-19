@@ -13,9 +13,9 @@
 class PacketQueue
 {
 public:
-  PacketQueue(size_t capacity);
-  ~PacketQueue();
-
+  PacketQueue();
+  PacketShared::STATUS begin(size_t capacity);
+  PacketShared::STATUS end();
   size_t size() const { return _size; }
   size_t capacity() const { return _capacity; }
   PacketShared::STATUS reset();

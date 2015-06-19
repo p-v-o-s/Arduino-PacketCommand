@@ -4,15 +4,34 @@
 #include <Arduino.h>
 #include "PacketQueue.h"
 
-PacketQueue::PacketQueue(size_t capacity)
+PacketQueue::PacketQueue()
   : _beg_index(0)
   , _end_index(0)
   , _size(0)
-  , _capacity(capacity)
+  , _capacity(0)
   , _dataBufferSize(PacketShared::DATA_BUFFER_SIZE)
 {
-  //preallocate memory for all the slots
-  _slots = (PacketShared::Packet*) calloc(_capacity, sizeof(PacketShared::Packet));
+//  //preallocate memory for all the slots
+//  _slots = (PacketShared::Packet*) calloc(_capacity, sizeof(PacketShared::Packet));
+//  PacketShared::Packet *pkt_slot;
+//  for(size_t i=0; i < _capacity; i++){
+//    pkt_slot = &(_slots[i]); //pull out the slot by address
+//    //pkt_slot->data = (byte*) calloc(_dataBufferSize, sizeof(byte));
+//    pkt_slot->length = 0;
+//    pkt_slot->flags  = 0x00;
+//  }
+}
+
+PacketShared::STATUS PacketQueue::begin(size_t capacity)
+{
+//preallocate memory for all the slots
+  _slots = (PacketShared::Packet*) calloc(capacity, sizeof(PacketShared::Packet));
+  if (_slots == NULL){
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.println("### Error failed to allocate memory for the queue!");
+    #endif
+    return PacketShared::ERROR_MEMALLOC_FAIL;
+  } 
   PacketShared::Packet *pkt_slot;
   for(size_t i=0; i < _capacity; i++){
     pkt_slot = &(_slots[i]); //pull out the slot by address
@@ -20,9 +39,11 @@ PacketQueue::PacketQueue(size_t capacity)
     pkt_slot->length = 0;
     pkt_slot->flags  = 0x00;
   }
+  _capacity = capacity;  //make sure to cache
+  return PacketShared::SUCCESS;
 }
 
-PacketQueue::~PacketQueue()
+PacketShared::STATUS PacketQueue::end()
 {
   //PacketShared::Packet *pkt_slot;
   //for(size_t i=0; i < _capacity; i++){
@@ -30,6 +51,7 @@ PacketQueue::~PacketQueue()
   //  //free(pkt_slot->data);
   //}
   free(_slots);
+  return PacketShared::SUCCESS;
 }
 
 PacketShared::STATUS PacketQueue::reset()
