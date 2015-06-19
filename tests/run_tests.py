@@ -23,15 +23,13 @@ PS_STATUS = {
     'ERROR_QUEUE_UNDERFLOW':-10,
 }
 
-class SerialCommandDrivenTest(unittest.TestCase):
+################################################################################
+class SerialCommandDrivenTestSuite(unittest.TestCase):
     def setUp(self):
         port = sorted(glob.glob(SERIAL_PORT_PATTERN))[0]
         print "opening serial port: %s" % port
         self.ser = serial.Serial(port, baudrate=SERIAL_BAUDRATE)
         self.ser.flush()
-        self._send("PQ.RESET")
-        resp = self._parse_resp().next()
-        self.assertEqual(resp['pqs'],0) #check for error codes
     def tearDown(self):
         print "closing serial port"
         self.ser.close()
@@ -47,129 +45,148 @@ class SerialCommandDrivenTest(unittest.TestCase):
             break
         buff = "\n".join(buff)
         return yaml.load_all(buff)
-    def testEnqueueDequeue(self):
-        for i in range(1000):
-            #generate some random printable packet data
-            pkt = randstr(random.randint(1,32))
-            self._send("PQ.ENQ %s" % pkt)
-            resp = self._parse_resp().next()
-            self.assertEqual(resp['pqs'],0) #check for error codes
-            self._send("PQ.DEQ")
-            resp = self._parse_resp().next()
-            self.assertEqual(resp['pqs'],0)                  #check for error codes
-            self.assertEqual(resp['pkt.length'],len(pkt))    #check for size integrity
-            self.assertEqual(str(resp['pkt.data']),str(pkt)) #check for data integrity
-    def testEnqueueOverflow(self):
-        qsize = 0
-        pkts= []
-        while True:
-            #generate some random printable packet data
-            pkt = randstr(random.randint(1,32))
-            self._send("PQ.ENQ %s" % pkt)
-            resp = self._parse_resp().next()
-            if resp['pqs'] == PS_STATUS['ERROR_QUEUE_OVERFLOW']:
-               break
-            else:
-                self.assertEqual(resp['pqs'],0) #check for error codes
-                qsize += 1
-                pkts.append(pkt)
-        #test size
-        self._send("PQ.SIZE?")
+################################################################################
+class PackCommandTestSuite(SerialCommandDrivenTestSuite):
+    def setUp(self):
+        super(PackCommandTestSuite, self).setUp()  #call the setup of the parent
+        self._send("PCMD.RESET")
         resp = self._parse_resp().next()
-        self.assertEqual(int(resp['size']),qsize)
-        for pkt in pkts:
-            self._send("PQ.DEQ")
-            resp = self._parse_resp().next()
-            self.assertEqual(resp['pqs'],0)                  #check for error codes
-            self.assertEqual(resp['pkt.length'],len(pkt))    #check for size integrity
-            self.assertEqual(str(resp['pkt.data']),str(pkt)) #check for data integrity
-        #test size
-        self._send("PQ.SIZE?")
+        self.assertEqual(resp['pcs'],0) #check for error codes
+    def testAddCommand(self):
+        self._send("PCMD.ADDCMD")
         resp = self._parse_resp().next()
-        self.assertEqual(int(resp['size']),0)
-        
-    def testEnqueueOverflowUnderflow(self):
-        qsize = 0
-        pkts= []
-        while True:
-            #generate some random printable packet data
-            pkt = randstr(random.randint(1,32))
-            self._send("PQ.ENQ %s" % pkt)
-            resp = self._parse_resp().next()
-            if resp['pqs'] == PS_STATUS['ERROR_QUEUE_OVERFLOW']:
-               break
-            else:
-                self.assertEqual(resp['pqs'],0) #check for error codes
-                qsize += 1
-                pkts.append(pkt)
-        #test size
-        self._send("PQ.SIZE?")
-        resp = self._parse_resp().next()
-        self.assertEqual(int(resp['size']),qsize)
-        #dequeue all packets
-        for pkt in pkts:
-            self._send("PQ.DEQ")
-            resp = self._parse_resp().next()
-            self.assertEqual(resp['pqs'],0)                  #check for error codes
-            self.assertEqual(resp['pkt.length'],len(pkt))    #check for size integrity
-            self.assertEqual(str(resp['pkt.data']),str(pkt)) #check for data integrity
-        #test size
-        self._send("PQ.SIZE?")
-        resp = self._parse_resp().next()
-        self.assertEqual(int(resp['size']),0)
-        #cause underflow
-        self._send("PQ.DEQ")
-        resp = self._parse_resp().next()
-        self.assertEqual(resp['pqs'],PS_STATUS['ERROR_QUEUE_UNDERFLOW'])#check for error codes
-        self.assertEqual(resp['pkt.length'],0)    #length is zero on error
-    def testEnqueueRequeueOrder(self):
-        pkts = []
-        #generate some random printable packet data and enqueue (put on back)
-        pkt = randstr(random.randint(1,32))
-        self._send("PQ.ENQ %s" % pkt)
-        resp = self._parse_resp().next()
-        self.assertEqual(resp['pqs'],0) #check for error codes
-        pkts = pkts + [pkt]
-        #generate some random printable packet data and requeue (put on front)
-        pkt = randstr(random.randint(1,32))
-        self._send("PQ.REQ %s" % pkt)
-        resp = self._parse_resp().next()
-        self.assertEqual(resp['pqs'],0) #check for error codes
-        pkts = [pkt] + pkts
-        #dequeue the front element
-        self._send("PQ.DEQ")
-        resp = self._parse_resp().next()
-        self.assertEqual(str(resp['pkt.data']),pkts[0]) #check for data integrity
-        del pkts[0]
-        #dequeue the front element
-        self._send("PQ.DEQ")
-        resp = self._parse_resp().next()
-        self.assertEqual(str(resp['pkt.data']),pkts[0]) #check for data integrity
-        del pkts[0]
-    def testRequeueEnqueueOrder(self):
-        pkts = []
-        #generate some random printable packet data and requeue (put on front)
-        pkt = randstr(random.randint(1,32))
-        self._send("PQ.REQ %s" % pkt)
-        resp = self._parse_resp().next()
-        self.assertEqual(resp['pqs'],0) #check for error codes
-        pkts = [pkt] + pkts
-        #generate some random printable packet data and enqueue (put on back)
-        pkt = randstr(random.randint(1,32))
-        self._send("PQ.ENQ %s" % pkt)
-        resp = self._parse_resp().next()
-        self.assertEqual(resp['pqs'],0) #check for error codes
-        pkts = pkts + [pkt]
-        #dequeue the front element
-        self._send("PQ.DEQ")
-        resp = self._parse_resp().next()
-        self.assertEqual(str(resp['pkt.data']),pkts[0]) #check for data integrity
-        del pkts[0]
-        #dequeue the front element
-        self._send("PQ.DEQ")
-        resp = self._parse_resp().next()
-        self.assertEqual(str(resp['pkt.data']),pkts[0]) #check for data integrity
-        del pkts[0]
-      
+        self.assertEqual(resp['pcs'],0) #check for error codes
+        self.assertEqual(0,0)
+################################################################################
+#class PackQueueTestSuite(SerialCommandDrivenTestSuite):
+#    def setUp(self):
+#        super(PackQueueTestSuite, self).setUp()  #call the setup of the parent
+#        self._send("PQ.RESET")
+#        resp = self._parse_resp().next()
+#        self.assertEqual(resp['pqs'],0) #check for error codes
+#    def testEnqueueDequeue(self):
+#        for i in range(10):
+#            #generate some random printable packet data
+#            pkt = randstr(random.randint(1,32))
+#            self._send("PQ.ENQ %s" % pkt)
+#            resp = self._parse_resp().next()
+#            self.assertEqual(resp['pqs'],0) #check for error codes
+#            self._send("PQ.DEQ")
+#            resp = self._parse_resp().next()
+#            self.assertEqual(resp['pqs'],0)                  #check for error codes
+#            self.assertEqual(resp['pkt.length'],len(pkt))    #check for size integrity
+#            self.assertEqual(str(resp['pkt.data']),str(pkt)) #check for data integrity
+#    def testEnqueueOverflow(self):
+#        qsize = 0
+#        pkts= []
+#        while True:
+#            #generate some random printable packet data
+#            pkt = randstr(random.randint(1,32))
+#            self._send("PQ.ENQ %s" % pkt)
+#            resp = self._parse_resp().next()
+#            if resp['pqs'] == PS_STATUS['ERROR_QUEUE_OVERFLOW']:
+#               break
+#            else:
+#                self.assertEqual(resp['pqs'],0) #check for error codes
+#                qsize += 1
+#                pkts.append(pkt)
+#        #test size
+#        self._send("PQ.SIZE?")
+#        resp = self._parse_resp().next()
+#        self.assertEqual(int(resp['size']),qsize)
+#        for pkt in pkts:
+#            self._send("PQ.DEQ")
+#            resp = self._parse_resp().next()
+#            self.assertEqual(resp['pqs'],0)                  #check for error codes
+#            self.assertEqual(resp['pkt.length'],len(pkt))    #check for size integrity
+#            self.assertEqual(str(resp['pkt.data']),str(pkt)) #check for data integrity
+#        #test size
+#        self._send("PQ.SIZE?")
+#        resp = self._parse_resp().next()
+#        self.assertEqual(int(resp['size']),0)
+#        
+#    def testEnqueueOverflowUnderflow(self):
+#        qsize = 0
+#        pkts= []
+#        while True:
+#            #generate some random printable packet data
+#            pkt = randstr(random.randint(1,32))
+#            self._send("PQ.ENQ %s" % pkt)
+#            resp = self._parse_resp().next()
+#            if resp['pqs'] == PS_STATUS['ERROR_QUEUE_OVERFLOW']:
+#               break
+#            else:
+#                self.assertEqual(resp['pqs'],0) #check for error codes
+#                qsize += 1
+#                pkts.append(pkt)
+#        #test size
+#        self._send("PQ.SIZE?")
+#        resp = self._parse_resp().next()
+#        self.assertEqual(int(resp['size']),qsize)
+#        #dequeue all packets
+#        for pkt in pkts:
+#            self._send("PQ.DEQ")
+#            resp = self._parse_resp().next()
+#            self.assertEqual(resp['pqs'],0)                  #check for error codes
+#            self.assertEqual(resp['pkt.length'],len(pkt))    #check for size integrity
+#            self.assertEqual(str(resp['pkt.data']),str(pkt)) #check for data integrity
+#        #test size
+#        self._send("PQ.SIZE?")
+#        resp = self._parse_resp().next()
+#        self.assertEqual(int(resp['size']),0)
+#        #cause underflow
+#        self._send("PQ.DEQ")
+#        resp = self._parse_resp().next()
+#        self.assertEqual(resp['pqs'],PS_STATUS['ERROR_QUEUE_UNDERFLOW'])#check for error codes
+#        self.assertEqual(resp['pkt.length'],0)    #length is zero on error
+#    def testEnqueueRequeueOrder(self):
+#        pkts = []
+#        #generate some random printable packet data and enqueue (put on back)
+#        pkt = randstr(random.randint(1,32))
+#        self._send("PQ.ENQ %s" % pkt)
+#        resp = self._parse_resp().next()
+#        self.assertEqual(resp['pqs'],0) #check for error codes
+#        pkts = pkts + [pkt]
+#        #generate some random printable packet data and requeue (put on front)
+#        pkt = randstr(random.randint(1,32))
+#        self._send("PQ.REQ %s" % pkt)
+#        resp = self._parse_resp().next()
+#        self.assertEqual(resp['pqs'],0) #check for error codes
+#        pkts = [pkt] + pkts
+#        #dequeue the front element
+#        self._send("PQ.DEQ")
+#        resp = self._parse_resp().next()
+#        self.assertEqual(str(resp['pkt.data']),pkts[0]) #check for data integrity
+#        del pkts[0]
+#        #dequeue the front element
+#        self._send("PQ.DEQ")
+#        resp = self._parse_resp().next()
+#        self.assertEqual(str(resp['pkt.data']),pkts[0]) #check for data integrity
+#        del pkts[0]
+#    def testRequeueEnqueueOrder(self):
+#        pkts = []
+#        #generate some random printable packet data and requeue (put on front)
+#        pkt = randstr(random.randint(1,32))
+#        self._send("PQ.REQ %s" % pkt)
+#        resp = self._parse_resp().next()
+#        self.assertEqual(resp['pqs'],0) #check for error codes
+#        pkts = [pkt] + pkts
+#        #generate some random printable packet data and enqueue (put on back)
+#        pkt = randstr(random.randint(1,32))
+#        self._send("PQ.ENQ %s" % pkt)
+#        resp = self._parse_resp().next()
+#        self.assertEqual(resp['pqs'],0) #check for error codes
+#        pkts = pkts + [pkt]
+#        #dequeue the front element
+#        self._send("PQ.DEQ")
+#        resp = self._parse_resp().next()
+#        self.assertEqual(str(resp['pkt.data']),pkts[0]) #check for data integrity
+#        del pkts[0]
+#        #dequeue the front element
+#        self._send("PQ.DEQ")
+#        resp = self._parse_resp().next()
+#        self.assertEqual(str(resp['pkt.data']),pkts[0]) #check for data integrity
+#        del pkts[0]
+#      
 if __name__ == "__main__":
     unittest.main()
