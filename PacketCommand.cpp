@@ -24,9 +24,7 @@
 PacketCommand::PacketCommand(size_t maxCommands,
                              size_t inputBufferSize,
                              size_t outputBufferSize
-                            )
-  : _commandCount(0)
-{
+                            ){
   _maxCommands = maxCommands;
   //allocate memory for the command lookup and intialize with all null pointers
   _commandList = (CommandInfo*) calloc(maxCommands, sizeof(CommandInfo));
@@ -38,11 +36,37 @@ PacketCommand::PacketCommand(size_t maxCommands,
   else{ //do not allocate anything
     _input_buffer = NULL;
   }
+  //allocate memory for the output buffer
+  _outputBufferSize = outputBufferSize;
+  if (  _outputBufferSize > 0){ //allocate memory
+     allocateOutputBuffer(outputBufferSize);
+  }
+  else{ //do not allocate anything
+    _output_buffer = NULL;
+  }
+
+  reset();
+}
+
+/**
+ * Resets the state of the command handler, undoing any addCommand calls,
+ * callback registrations, and buffer state changes.
+ */
+PacketShared::STATUS PacketCommand::reset(){
+  //wipe the command list clean
+  for(size_t i=0; i < _commandCount; i++){
+    for(size_t j=0; j < MAX_TYPE_ID_LEN; j++){
+      _commandList[i].type_id[j] = 0x00;
+    }
+    _commandList[i].name = "";
+    _commandList[i].function = NULL;
+  }
+  _commandCount = 0;
+  //reset input buffer
   _input_index = 0;
   _input_len   = 0;
   _input_flags = 0x00;
-  //allocate memory for the output buffer
-  _outputBufferSize = outputBufferSize;
+  //reset output buffer
   _output_index = 0;
   _output_len   = 0;
   _output_flags = 0x00;
@@ -52,6 +76,7 @@ PacketCommand::PacketCommand(size_t maxCommands,
   _send_callback = NULL;
   _send_nonblocking_callback = NULL;
   _reply_recv_callback = NULL;
+  return PacketShared::SUCCESS;
 }
 
 /**
@@ -148,7 +173,7 @@ PacketShared::STATUS PacketCommand::addCommand(const byte* type_id,
   }
   #ifdef PACKETCOMMAND_DEBUG
   Serial.print(F("type_id="));
-  for(int i=0; i < MAX_TYPE_ID_LEN; i++){
+  for(size_t i=0; i < MAX_TYPE_ID_LEN; i++){
     if( new_command.type_id[i] != 0x00 ){
       Serial.print(new_command.type_id[i], HEX);
     }
@@ -311,7 +336,12 @@ PacketShared::STATUS PacketCommand::lookupCommandByName(const char* name){
 }
 
 PacketShared::STATUS PacketCommand::recv() {
-  bool gotPacket;
+  bool gotPacket = false;
+  return recv(gotPacket);
+}
+
+PacketShared::STATUS PacketCommand::recv(bool& gotPacket) {
+  gotPacket = false;
   #ifdef PACKETCOMMAND_DEBUG
   Serial.println(F("In PacketCommand::recv()"));
   Serial.print(F("\t_input_index="));Serial.println(_input_index);
@@ -656,6 +686,10 @@ PacketShared::STATUS PacketCommand::dequeueInputBuffer(PacketQueue& pq){
   }
 }
 
+void  PacketCommand::allocateOutputBuffer(size_t len){
+  _outputBufferSize = len;
+  _output_buffer = (byte*) calloc(_outputBufferSize, sizeof(byte));
+}
 
 /**
  * Accessors and mutators for the output buffer
@@ -744,8 +778,8 @@ PacketShared::STATUS PacketCommand::unpack_byte(byte& varByRef){
   return moveInputBufferIndex(sizeof(byte));
 }
 
-PacketShared::STATUS PacketCommand::unpack_byte_array(byte* buffer, int len){
-  for(int i=0; i < len; i++){
+PacketShared::STATUS PacketCommand::unpack_byte_array(byte* buffer, size_t len){
+  for(size_t i=0; i < len; i++){
     buffer[i] = _input_buffer[_input_index + i];
   }
   return moveInputBufferIndex(len*sizeof(byte)); //FIXME should be len-1?
@@ -756,8 +790,8 @@ PacketShared::STATUS PacketCommand::unpack_char(char& varByRef){
   return moveInputBufferIndex(sizeof(char));
 }
 
-PacketShared::STATUS PacketCommand::unpack_char_array(char* buffer, int len){
-  for(int i=0; i < len; i++){
+PacketShared::STATUS PacketCommand::unpack_char_array(char* buffer, size_t len){
+  for(size_t i=0; i < len; i++){
     buffer[i] = _input_buffer[_input_index + i];
   }
   return moveInputBufferIndex(len*sizeof(char)); //FIXME should be len-1?
@@ -836,7 +870,7 @@ PacketShared::STATUS PacketCommand::pack_byte(byte value){
   return moveOutputBufferIndex(sizeof(byte));
 }
 
-PacketShared::STATUS PacketCommand::pack_byte_array(byte* buffer, int len){
+PacketShared::STATUS PacketCommand::pack_byte_array(byte* buffer, size_t len){
   memcpy( (_output_buffer + _output_index), buffer, len*sizeof(byte)); //FIXME should be len-1?
   return moveOutputBufferIndex(len*sizeof(byte));
 }
@@ -846,7 +880,7 @@ PacketShared::STATUS PacketCommand::pack_char(char value){
   return moveOutputBufferIndex(sizeof(char));
 }
 
-PacketShared::STATUS PacketCommand::pack_char_array(char* buffer, int len){
+PacketShared::STATUS PacketCommand::pack_char_array(char* buffer, size_t len){
   memcpy( (_output_buffer + _output_index), buffer, len*sizeof(char));
   return moveOutputBufferIndex(len*sizeof(char)); //FIXME should be len-1?
 }

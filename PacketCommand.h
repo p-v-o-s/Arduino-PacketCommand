@@ -62,6 +62,7 @@ class PacketCommand{
                   size_t inputBufferSize  = INPUTBUFFERSIZE_DEFAULT,
                   size_t outputBufferSize = OUTPUTBUFFERSIZE_DEFAULT
                  );
+    PacketShared::STATUS reset();
     PacketShared::STATUS addCommand(const byte* type_id,
                       const char* name, 
                       void(*function)(PacketCommand&));                          // Add a command to the processing dictionary.
@@ -79,8 +80,8 @@ class PacketCommand{
     
     PacketShared::STATUS lookupCommandByName(const char* name);                               //lookup and set current command by name
     CommandInfo getCurrentCommand();
-
     PacketShared::STATUS recv();                // Use the '_recv_callback' to put data into _input_buffer
+    PacketShared::STATUS recv(bool& gotPacket); // Use the '_recv_callback' to put data into _input_buffer
     PacketShared::STATUS matchCommand();        // Read the packet header from the input buffer and locate a matching registered handler function
     PacketShared::STATUS dispatchCommand();     // Call the current Command
     PacketShared::STATUS send();                // Use the '_send_callback' to send _output_buffer
@@ -110,9 +111,9 @@ class PacketCommand{
     void   resetOutputBuffer(){_output_index=0;_output_len=0;};
     //unpacking chars and bytes
     PacketShared::STATUS unpack_byte(byte& varByRef);
-    PacketShared::STATUS unpack_byte_array(byte* buffer, int len);
+    PacketShared::STATUS unpack_byte_array(byte* buffer, size_t len);
     PacketShared::STATUS unpack_char(char& varByRef);
-    PacketShared::STATUS unpack_char_array(char* buffer, int len);
+    PacketShared::STATUS unpack_char_array(char* buffer, size_t len);
     //unpacking stdint types
     PacketShared::STATUS unpack_int8(    int8_t& varByRef);
     PacketShared::STATUS unpack_uint8(  uint8_t& varByRef);
@@ -132,9 +133,9 @@ class PacketCommand{
     PacketShared::STATUS setupOutputCommand(CommandInfo command);
     //packing chars and bytes
     PacketShared::STATUS pack_byte(byte value);
-    PacketShared::STATUS pack_byte_array(byte* buffer, int len);
+    PacketShared::STATUS pack_byte_array(byte* buffer, size_t len);
     PacketShared::STATUS pack_char(char value);
-    PacketShared::STATUS pack_char_array(char* buffer, int len);
+    PacketShared::STATUS pack_char_array(char* buffer, size_t len);
     //packing stdint types
     PacketShared::STATUS pack_int8(    int8_t value);
     PacketShared::STATUS pack_uint8(  uint8_t value);
@@ -153,6 +154,7 @@ class PacketCommand{
   private:
     //helper methods
     void allocateInputBuffer(size_t len);
+    void allocateOutputBuffer(size_t len);
     //data members
     CommandInfo *_commandList;    //array to hold command entries
     CommandInfo _current_command; //command ready to dispatch
