@@ -20,7 +20,8 @@ namespace PacketShared{
     ERROR_PACKET_INDEX_OUT_OF_BOUNDS = -7,
     ERROR_INPUT_BUFFER_OVERRUN   = -8,
     ERROR_QUEUE_OVERFLOW         = -9,
-    ERROR_QUEUE_UNDERFLOW        = -10
+    ERROR_QUEUE_UNDERFLOW        = -10,
+    ERROR_MEMALLOC_FAIL          = -11
   } STATUS;
 
   static const size_t DATA_BUFFER_SIZE = 32;
