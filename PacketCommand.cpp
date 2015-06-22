@@ -644,8 +644,17 @@ PacketShared::STATUS PacketCommand::setInputBufferIndex(int new_index){
   }
 }
 
+
 PacketShared::STATUS PacketCommand::moveInputBufferIndex(int n){
   return setInputBufferIndex(_input_index + n);
+}
+    
+void PacketCommand::resetInputBuffer(){
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("In PacketCommand::resetInputBuffer"));
+  #endif
+  _input_index = 0;
+  _input_len   = 0;
 }
 
 PacketShared::STATUS PacketCommand::enqueueInputBuffer(PacketQueue& pq){

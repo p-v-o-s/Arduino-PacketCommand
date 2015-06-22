@@ -95,7 +95,7 @@ class PacketCommand{
     size_t getInputLen(){return _input_len;};
     PacketShared::STATUS setInputBufferIndex(int new_index);
     PacketShared::STATUS moveInputBufferIndex(int n);
-    void   resetInputBuffer(){_input_index=0;_input_len=0;};
+    void   resetInputBuffer();
     PacketShared::STATUS enqueueInputBuffer(PacketQueue& pq);
     PacketShared::STATUS dequeueInputBuffer(PacketQueue& pq);
     byte*  getOutputBuffer(){return _output_buffer;};
