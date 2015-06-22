@@ -34,7 +34,7 @@
 #include "PacketShared.h"
 
 // Uncomment the next line to run the library in debug mode (verbose messages)
-//#define PACKETCOMMAND_DEBUG
+#define PACKETCOMMAND_DEBUG
 
 typedef float  float32_t;
 typedef double float64_t;

@@ -24,14 +24,20 @@ PacketQueue::PacketQueue()
 
 PacketShared::STATUS PacketQueue::begin(size_t capacity)
 {
-//preallocate memory for all the slots
+  #ifdef PACKETQUEUE_DEBUG
+  Serial.println(F("# In PacketQueue::begin"));
+  #endif
+  //preallocate memory for all the slots
   _slots = (PacketShared::Packet*) calloc(capacity, sizeof(PacketShared::Packet));
   if (_slots == NULL){
-    #ifdef PACKETCOMMAND_DEBUG
+    #ifdef PACKETQUEUE_DEBUG
     Serial.println("### Error failed to allocate memory for the queue!");
     #endif
     return PacketShared::ERROR_MEMALLOC_FAIL;
   } 
+  #ifdef PACKETQUEUE_DEBUG
+  Serial.print("# \tallocated &_slots=");Serial.println((int) &_slots, HEX);
+  #endif
   PacketShared::Packet *pkt_slot;
   for(size_t i=0; i < _capacity; i++){
     pkt_slot = &(_slots[i]); //pull out the slot by address
