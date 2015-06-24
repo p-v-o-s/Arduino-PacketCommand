@@ -27,20 +27,32 @@ namespace PacketShared{
   static const size_t DATA_BUFFER_SIZE = 32;
   // Packet structure
   struct Packet {
-    byte    data[DATA_BUFFER_SIZE];
-    size_t  length;
-    byte    flags;
+    byte     data[DATA_BUFFER_SIZE];
+    size_t   length;
+    uint32_t timestamp;
+    byte     flags;
+  };
+  
+  enum InputPacketFlags {
+       IPFLAG_IS_QUERY = 0x01,
+       //IPFLAG_1 = 0x02,
+       //IPFLAG_2 = 0x04,
+       //IPFLAG_3 = 0x08,
+       //IPFLAG_4 = 0x10,
+       //IPFLAG_5 = 0x20,
+       //IPFLAG_6 = 0x40,
+       //IPFLAG_7 = 0x80
   };
 
-  enum PacketFlags {
-       PFLAG_IS_QUERY = 0x01,
-       //PFLAG_1 = 0x02,
-       //PFLAG_2 = 0x04,
-       //PFLAG_3 = 0x08,
-       //PFLAG_4 = 0x10,
-       //PFLAG_5 = 0x20,
-       //PFLAG_6 = 0x40,
-       //PFLAG_7 = 0x80
+  enum OutputPacketFlags {
+       OPFLAG_IS_QUERY = 0x01,
+       OPFLAG_APPEND_SEND_TIMESTAMP = 0x02,
+       //OPFLAG_2 = 0x04,
+       //OPFLAG_3 = 0x08,
+       //OPFLAG_4 = 0x10,
+       //OPFLAG_5 = 0x20,
+       //OPFLAG_6 = 0x40,
+       //OPFLAG_7 = 0x80
   };
 };
 

@@ -34,7 +34,7 @@
 #include "PacketShared.h"
 
 // Uncomment the next line to run the library in debug mode (verbose messages)
-#define PACKETCOMMAND_DEBUG
+//#define PACKETCOMMAND_DEBUG
 
 typedef float  float32_t;
 typedef double float64_t;
@@ -82,10 +82,13 @@ class PacketCommand{
     CommandInfo getCurrentCommand();
     PacketShared::STATUS recv();                // Use the '_recv_callback' to put data into _input_buffer
     PacketShared::STATUS recv(bool& gotPacket); // Use the '_recv_callback' to put data into _input_buffer
+    PacketShared::STATUS set_recvTimestamp(uint32_t timestamp_micros);
+    uint32_t             get_recvTimestamp(){return _recv_timestamp_micros;};
     PacketShared::STATUS matchCommand();        // Read the packet header from the input buffer and locate a matching registered handler function
     PacketShared::STATUS dispatchCommand();     // Call the current Command
     PacketShared::STATUS send();                // Use the '_send_callback' to send _output_buffer
     PacketShared::STATUS send_nonblocking();    // Use the '_send_nonblocking_callback' to send _schedule the output_buffer contents to be sent, returning immediately
+    PacketShared::STATUS set_sendTimestamp(uint32_t timestamp_micros);
     PacketShared::STATUS reply_send();
     PacketShared::STATUS reply_recv();
     
@@ -102,8 +105,10 @@ class PacketCommand{
     int    getOutputBufferIndex();
     size_t getOutputLen(){return _output_len;};
     PacketShared::STATUS setOutputBufferIndex(int new_index);
-    PacketShared::STATUS markOutputAsQuery(){_output_flags|=PacketShared::PFLAG_IS_QUERY;return PacketShared::SUCCESS;}
-    bool   outputIsQuery(){return (bool)_output_flags&PacketShared::PFLAG_IS_QUERY;}
+    byte   getOutputFlags(){return _output_flags;};
+    void   flagOutputAsQuery(){_output_flags|=PacketShared::OPFLAG_IS_QUERY;};
+    void   flagOutputAppendSendTimestamp(){_output_flags|=PacketShared::OPFLAG_APPEND_SEND_TIMESTAMP;};
+    bool   outputIsQuery(){return (bool)_output_flags&PacketShared::OPFLAG_IS_QUERY;};
     PacketShared::STATUS enqueueOutputBuffer(PacketQueue& pq);
     PacketShared::STATUS dequeueOutputBuffer(PacketQueue& pq);
     PacketShared::STATUS requeueOutputBuffer(PacketQueue& pq);
@@ -162,17 +167,19 @@ class PacketCommand{
     size_t  _commandCount;
     size_t  _maxCommands;
     //track state of input buffer
-    size_t _inputBufferSize;
-    byte*  _input_buffer;        //this will be a fixed buffer location
-    size_t _input_index;
-    size_t _input_len;
-    byte   _input_flags;
+    size_t   _inputBufferSize;
+    byte*    _input_buffer;        //this will be a fixed buffer location
+    size_t   _input_index;
+    size_t   _input_len;
+    byte     _input_flags;
+    uint32_t _recv_timestamp_micros;
     //track state of output buffer
     size_t _outputBufferSize;
     byte*  _output_buffer;       //this will be a fixed buffer location
     size_t _output_index;
     size_t _output_len;
     byte   _output_flags;
+    uint32_t _send_timestamp_micros;
     //cached callbacks
     void (*_send_callback)(PacketCommand& this_pCmd);
     void (*_send_nonblocking_callback)(PacketCommand& this_pCmd);

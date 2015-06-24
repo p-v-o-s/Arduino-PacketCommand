@@ -8,7 +8,7 @@
 #include "PacketShared.h"
 
 //uncomment for debugging
-#define PACKETQUEUE_DEBUG
+//#define PACKETQUEUE_DEBUG
 
 class PacketQueue
 {
