@@ -34,7 +34,7 @@
 #include "PacketShared.h"
 
 // Uncomment the next line to run the library in debug mode (verbose messages)
-//#define PACKETCOMMAND_DEBUG
+#define PACKETCOMMAND_DEBUG
 
 typedef float  float32_t;
 typedef double float64_t;
@@ -113,7 +113,7 @@ class PacketCommand{
     PacketShared::STATUS dequeueOutputBuffer(PacketQueue& pq);
     PacketShared::STATUS requeueOutputBuffer(PacketQueue& pq);
     PacketShared::STATUS moveOutputBufferIndex(int n);
-    void   resetOutputBuffer(){_output_index=0;_output_len=0;};
+    void   resetOutputBuffer();
     //unpacking chars and bytes
     PacketShared::STATUS unpack_byte(byte& varByRef);
     PacketShared::STATUS unpack_byte_array(byte* buffer, size_t len);
