@@ -236,7 +236,7 @@ PacketShared::STATUS PacketCommand::registerReplySendCallback(void (*function)(P
  * This sets up a callback which can be used by a command handler to send a 
  * packet from its output buffer
  */
-PacketShared::STATUS PacketCommand::registerSendCallback(void (*function)(PacketCommand&)){
+PacketShared::STATUS PacketCommand::registerSendCallback(bool (*function)(PacketCommand&)){
   if (function != NULL){
     _send_callback = function;
     return PacketShared::SUCCESS;
@@ -350,9 +350,9 @@ PacketShared::STATUS PacketCommand::recv(bool& gotPacket) {
   uint32_t timestamp_micros = micros();
   gotPacket = false;
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("In PacketCommand::recv()"));
-  Serial.print(F("\t_input_index="));Serial.println(_input_index);
-  Serial.print(F("\t_input_len="));Serial.println(_input_len);
+  Serial.println(F("# In PacketCommand::recv()"));
+  Serial.print(F("#\t_input_index="));Serial.println(_input_index);
+  Serial.print(F("#\t_input_len="));Serial.println(_input_len);
   #endif
   //call the read callback which should load data into _input_buffer and set len
   if (_recv_callback != NULL){
@@ -360,7 +360,7 @@ PacketShared::STATUS PacketCommand::recv(bool& gotPacket) {
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("Error: tried write using a NULL read callback function pointer"));
+    Serial.println(F("### Error: tried write using a NULL read callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -543,6 +543,12 @@ PacketShared::STATUS PacketCommand::setupOutputCommand(PacketCommand::CommandInf
 
 // Use the '_send_callback' to send return packet
 PacketShared::STATUS PacketCommand::send(){
+  bool sentPacket = false;
+  return send(sentPacket);
+}
+
+// Use the '_send_callback' to send return packet
+PacketShared::STATUS PacketCommand::send(bool& sentPacket){
   uint32_t timestamp_micros = micros();
   if (_send_callback != NULL){
     set_sendTimestamp(timestamp_micros);  //markdown the time write now
@@ -552,12 +558,12 @@ PacketShared::STATUS PacketCommand::send(){
       }
       else{
         #ifdef PACKETCOMMAND_DEBUG
-        Serial.println(F("### Error: appeding send timestamp would overrun the output buffer"));
+        Serial.println(F("### Error: appending send timestamp would overrun the output buffer"));
         #endif
       }
     }
     //call the callback!
-    (*_send_callback)(*this);
+    sentPacket = (*_send_callback)(*this);
     return PacketShared::SUCCESS;
   }
   else{
@@ -579,7 +585,7 @@ PacketShared::STATUS PacketCommand::send_nonblocking(){
       }
       else{
         #ifdef PACKETCOMMAND_DEBUG
-        Serial.println(F("### Error: appeding send timestamp would overrun the output buffer"));
+        Serial.println(F("### Error: appending send timestamp would overrun the output buffer"));
         #endif
       }
     }
