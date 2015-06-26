@@ -72,7 +72,7 @@ class PacketCommand{
     PacketShared::STATUS registerRecvCallback(bool (*function)(PacketCommand&));
     PacketShared::STATUS registerReplySendCallback(void (*function)(PacketCommand&));
     //output
-    PacketShared::STATUS registerSendCallback(void (*function)(PacketCommand&));              // A callback which writes output to the interface
+    PacketShared::STATUS registerSendCallback(bool (*function)(PacketCommand&));              // A callback which writes output to the interface
     PacketShared::STATUS registerSendNonblockingCallback(void (*function)(PacketCommand&));   // A callback which schedules to writes output to the interface, returns immediately
     PacketShared::STATUS registerReplyRecvCallback(bool (*function)(PacketCommand&));
     
@@ -87,6 +87,7 @@ class PacketCommand{
     PacketShared::STATUS matchCommand();        // Read the packet header from the input buffer and locate a matching registered handler function
     PacketShared::STATUS dispatchCommand();     // Call the current Command
     PacketShared::STATUS send();                // Use the '_send_callback' to send _output_buffer
+    PacketShared::STATUS send(bool& sentPacket);                // Use the '_send_callback' to send _output_buffer
     PacketShared::STATUS send_nonblocking();    // Use the '_send_nonblocking_callback' to send _schedule the output_buffer contents to be sent, returning immediately
     PacketShared::STATUS set_sendTimestamp(uint32_t timestamp_micros);
     PacketShared::STATUS reply_send();
@@ -181,7 +182,7 @@ class PacketCommand{
     byte   _output_flags;
     uint32_t _send_timestamp_micros;
     //cached callbacks
-    void (*_send_callback)(PacketCommand& this_pCmd);
+    bool (*_send_callback)(PacketCommand& this_pCmd);
     void (*_send_nonblocking_callback)(PacketCommand& this_pCmd);
     bool (*_recv_callback)(PacketCommand& this_pCmd);
     void (*_reply_send_callback)(PacketCommand& this_pCmd);
