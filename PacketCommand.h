@@ -120,7 +120,7 @@ class PacketCommand{
     PacketShared::STATUS dequeueOutputBuffer(PacketQueue& pq);
     PacketShared::STATUS requeueOutputBuffer(PacketQueue& pq);
     PacketShared::STATUS moveOutputBufferIndex(int n);
-    void   resetOutputBuffer(){_output_index=0;_output_len=0;};
+    void   resetOutputBuffer();
     //unpacking chars and bytes
     PacketShared::STATUS unpack_byte(byte& varByRef);
     PacketShared::STATUS unpack_byte_array(byte* buffer, size_t len);

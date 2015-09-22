@@ -543,10 +543,19 @@ PacketShared::STATUS PacketCommand::setupOutputCommandByName(const char* name){
     pcs = setupOutputCommand(_current_command);
     return pcs;
   }
-  else{return pcs;}
+  else{
+    #ifdef PACKETCOMMAND_DEBUG
+    Serial.print(F("### Error: lookupCommandByName failed with errocode: "));
+    Serial.println(pcs);
+    #endif
+    return pcs;
+  }
 }
 
 PacketShared::STATUS PacketCommand::setupOutputCommand(PacketCommand::CommandInfo command){
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("# In PacketCommand::setupOutputCommand"));
+  #endif
   byte cur_byte;
   for(size_t i=0;i<MAX_TYPE_ID_LEN;i++){
       cur_byte = command.type_id[i];
@@ -567,6 +576,11 @@ PacketShared::STATUS PacketCommand::send(){
 // Use the '_send_callback' to send return packet
 PacketShared::STATUS PacketCommand::send(bool& sentPacket){
   uint32_t timestamp_micros = micros();
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("# In PacketCommand::send"));
+  Serial.print(F("# \ttimestamp_micros: "));
+  Serial.println(timestamp_micros);
+  #endif
   if (_send_callback != NULL){
     set_sendTimestamp(timestamp_micros);  //markdown the time write now
     if (_output_flags & PacketShared::OPFLAG_APPEND_SEND_TIMESTAMP){
@@ -594,6 +608,11 @@ PacketShared::STATUS PacketCommand::send(bool& sentPacket){
 // Use the '_send_nonblocking_callback' to send return packet
 PacketShared::STATUS PacketCommand::send_nonblocking(){
   uint32_t timestamp_micros = micros();
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("# In PacketCommand::send_nonblocking"));
+  Serial.print(F("# \ttimestamp_micros: "));
+  Serial.println(timestamp_micros);
+  #endif
   if (_send_nonblocking_callback != NULL){
     set_sendTimestamp(timestamp_micros);  //markdown the time write now
     if (_output_flags & PacketShared::OPFLAG_APPEND_SEND_TIMESTAMP){
@@ -748,6 +767,7 @@ void PacketCommand::resetInputBuffer(){
   #endif
   _input_index = 0;
   _input_len   = 0;
+  _input_flags = 0x00;
 }
 
 PacketShared::STATUS PacketCommand::enqueueInputBuffer(PacketQueue& pq){
@@ -820,7 +840,23 @@ PacketShared::STATUS PacketCommand::setOutputBufferIndex(int new_index){
 }
 
 PacketShared::STATUS PacketCommand::moveOutputBufferIndex(int n){
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("# In PacketCommand::moveOutputBufferIndex"));
+  Serial.print(F("# \t_output_index="));
+  Serial.println(_output_index);
+  Serial.print(F("# \tn="));
+  Serial.println(n);
+  #endif
   return setOutputBufferIndex(_output_index + n);
+}
+
+void PacketCommand::resetOutputBuffer(){
+  #ifdef PACKETCOMMAND_DEBUG
+  Serial.println(F("# In PacketCommand::resetOutputBuffer"));
+  #endif
+  _output_index = 0;
+  _output_len   = 0;
+  _output_flags = 0x00;
 }
 
 PacketShared::STATUS PacketCommand::enqueueOutputBuffer(PacketQueue& pq){
@@ -847,8 +883,8 @@ PacketShared::STATUS PacketCommand::dequeueOutputBuffer(PacketQueue& pq){
   PacketShared::STATUS pqs;
   pqs = pq.dequeue(pkt);
   if(pqs == PacketShared::SUCCESS){
-    _output_index = 0;
     _output_len = min(pkt.length, _outputBufferSize);
+    _output_index = _output_len;  //IMPORTANT! set output index end of last entry so stuff could be added properly
     _output_flags = pkt.flags;
     memcpy(_output_buffer, pkt.data, _input_len);
     return PacketShared::SUCCESS;
