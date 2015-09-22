@@ -18,6 +18,7 @@
  */
 #include "PacketCommand.h"
 
+
 /**
  * Constructor makes sure some things are set.
  */
@@ -94,27 +95,27 @@ PacketShared::STATUS PacketCommand::addCommand(const byte* type_id,
   size_t type_id_len = strlen((char*) type_id);
   struct CommandInfo new_command;
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# in PacketCommand::addCommand"));
-  Serial.print(F("#\tAdding command #("));
-  Serial.print(_commandCount);
-  Serial.print(F("): "));
-  Serial.println(name);
-  Serial.print("'");
-  Serial.print((char *) type_id);
-  Serial.println("'");
-  Serial.println(type_id_len);
+  DEBUG_PORT.println(F("# in PacketCommand::addCommand"));
+  DEBUG_PORT.print(F("#\tAdding command #("));
+  DEBUG_PORT.print(_commandCount);
+  DEBUG_PORT.print(F("): "));
+  DEBUG_PORT.println(name);
+  DEBUG_PORT.print("'");
+  DEBUG_PORT.print((char *) type_id);
+  DEBUG_PORT.println("'");
+  DEBUG_PORT.println(type_id_len);
   #endif
   if (_commandCount >= _maxCommands - 1){
       #ifdef PACKETCOMMAND_DEBUG
-      Serial.print(F("### Error: exceeded maxCommands="));
-      Serial.println(_maxCommands);
+      DEBUG_PORT.print(F("### Error: exceeded maxCommands="));
+      DEBUG_PORT.println(_maxCommands);
       #endif
       return PacketShared::ERROR_EXCEDED_MAX_COMMANDS;
   }
   if (type_id_len > MAX_TYPE_ID_LEN){
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.print(F("### Error: 'type_id' cannot exceed MAX_TYPE_ID_LEN="));
-    Serial.println(MAX_TYPE_ID_LEN);
+    DEBUG_PORT.print(F("### Error: 'type_id' cannot exceed MAX_TYPE_ID_LEN="));
+    DEBUG_PORT.println(MAX_TYPE_ID_LEN);
     #endif
     return PacketShared::ERROR_INVALID_TYPE_ID;
   }
@@ -124,43 +125,43 @@ PacketShared::STATUS PacketCommand::addCommand(const byte* type_id,
       //test if the type ID rules are followed
       cur_byte = type_id[i];
       #ifdef PACKETCOMMAND_DEBUG
-      Serial.print(F("#\ti="));
-      Serial.println(i);
-      Serial.print(F("#\tchecking type ID byte: "));
-      Serial.println(cur_byte, HEX);
+      DEBUG_PORT.print(F("#\ti="));
+      DEBUG_PORT.println(i);
+      DEBUG_PORT.print(F("#\tchecking type ID byte: "));
+      DEBUG_PORT.println(cur_byte, HEX);
       #endif
       switch(cur_byte){
         case 0xFF:
           if (i < (type_id_len - 1)){
             //continue extended type ID
             #ifdef PACKETCOMMAND_DEBUG
-            Serial.println(F("#\tcontinue extended type ID"));
+            DEBUG_PORT.println(F("#\tcontinue extended type ID"));
             #endif
             new_command.type_id[i] = 0xFF;
           }
           else{//cannot end type_id with 0xFF
             #ifdef PACKETCOMMAND_DEBUG
-            Serial.println(F("### Error: 'type_id' cannot end with 0xFF"));
+            DEBUG_PORT.println(F("### Error: 'type_id' cannot end with 0xFF"));
             #endif
             return PacketShared::ERROR_INVALID_TYPE_ID;
           }
           break;
         case 0x00:
           #ifdef PACKETCOMMAND_DEBUG
-          Serial.println(F("### Error: 'type_id' cannot contain null (0x00) bytes"));
+          DEBUG_PORT.println(F("### Error: 'type_id' cannot contain null (0x00) bytes"));
           #endif
           return PacketShared::ERROR_INVALID_TYPE_ID;
           break;
         default:  //any other byte value
           if(i == (type_id_len - 1)){//valid type ID completed
             #ifdef PACKETCOMMAND_DEBUG
-            Serial.println(F("#\tvalid type ID completed"));
+            DEBUG_PORT.println(F("#\tvalid type ID completed"));
             #endif
             new_command.type_id[i] = cur_byte;
           }
           else{
             #ifdef PACKETCOMMAND_DEBUG
-            Serial.println(F("### Error: 'type_id' cannot have a prefix != [0xFF]*"));
+            DEBUG_PORT.println(F("### Error: 'type_id' cannot have a prefix != [0xFF]*"));
             #endif
             return PacketShared::ERROR_INVALID_TYPE_ID;
           }
@@ -173,13 +174,13 @@ PacketShared::STATUS PacketCommand::addCommand(const byte* type_id,
     }
   }
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.print(F("#\ttype_id="));
+  DEBUG_PORT.print(F("#\ttype_id="));
   for(size_t i=0; i < MAX_TYPE_ID_LEN; i++){
     if( new_command.type_id[i] != 0x00 ){
-      Serial.print(new_command.type_id[i], HEX);
+      DEBUG_PORT.print(new_command.type_id[i], HEX);
     }
   }
-  Serial.println();
+  DEBUG_PORT.println();
   #endif
   //finish formatting command info
   new_command.name     = name;
@@ -261,6 +262,20 @@ PacketShared::STATUS PacketCommand::registerSendNonblockingCallback(void (*funct
 }
 
 /**
+ * This sets up a callback which can be used by a command handler to send a 
+ * packet from its output buffer
+ */
+PacketShared::STATUS PacketCommand::registerSendBufferedCallback(void (*function)(PacketCommand&)){
+  if (function != NULL){
+    _send_buffered_callback = function;
+    return PacketShared::SUCCESS;
+  }
+  else{
+    return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
+  }
+}
+
+/**
  * 
  */
 PacketShared::STATUS PacketCommand::registerReplyRecvCallback(bool (*function)(PacketCommand&)){
@@ -278,31 +293,33 @@ PacketShared::STATUS PacketCommand::registerReplyRecvCallback(bool (*function)(P
  */
 PacketShared::STATUS PacketCommand::processInput(){
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::processInput"));
-  Serial.print(F("#\t_input_index="));Serial.println(_input_index);
-  Serial.print(F("#\t_input_len="));Serial.println(_input_len);
+  DEBUG_PORT.println(F("# In PacketCommand::processInput"));
+  DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
+  DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
   #endif
   PacketShared::STATUS pcs = matchCommand();
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# (processInput)-after calling matchCommand()"));
-  Serial.print(F("#\t_input_index="));Serial.println(_input_index);
-  Serial.print(F("#\t_input_len="));Serial.println(_input_len);
+  DEBUG_PORT.println(F("# (processInput)-after calling matchCommand()"));
+  DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
+  DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
   #endif
   if (pcs == PacketShared::SUCCESS){  //a command was matched
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.print(F("# (processInput)-matched command: "));
+    DEBUG_PORT.print(F("# (processInput)-matched command: "));
     CommandInfo cmd = getCurrentCommand();
-    Serial.println(cmd.name);
+    DEBUG_PORT.println(cmd.name);
     #endif
   }
   else if (pcs == PacketShared::ERROR_NO_TYPE_ID_MATCH){  //valid ID but no command was matched
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("# (processInput)-no matched command"));
+    DEBUG_PORT.println(F("# (processInput)-no matched command"));
     #endif
   }
   else{
-    Serial.print(F("### Error: pCmd.matchCommand returned status code: "));
-    Serial.println(pcs);
+    #ifdef PACKETCOMMAND_DEBUG
+    DEBUG_PORT.print(F("### Error: pCmd.matchCommand returned status code: "));
+    DEBUG_PORT.println(pcs);
+    #endif
     return pcs;
   }
   //dispatch to handler or default if no match
@@ -314,25 +331,25 @@ PacketShared::STATUS PacketCommand::processInput(){
 PacketShared::STATUS PacketCommand::lookupCommandByName(const char* name){
   _current_command = _default_command;
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::lookupCommandByName"));
-  Serial.print(F("#\tSearching for command named = "));
-  Serial.println(name);
+  DEBUG_PORT.println(F("# In PacketCommand::lookupCommandByName"));
+  DEBUG_PORT.print(F("#\tSearching for command named = "));
+  DEBUG_PORT.println(name);
   #endif
   for(size_t i=0; i < _maxCommands; i++){
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.print(F("#\tsearching command at index="));
-    Serial.println(i);
-    Serial.print(F("#\t&_commandList[i]="));
-    Serial.println((int) &_commandList[i], HEX);
-    Serial.print(F("#\ttype_id["));Serial.print(_input_index);Serial.print(F("]="));
-    Serial.println(_commandList[i].type_id[_input_index]);
-    Serial.print(F("#\tname="));
-    Serial.println(_commandList[i].name);
+    DEBUG_PORT.print(F("#\tsearching command at index="));
+    DEBUG_PORT.println(i);
+    DEBUG_PORT.print(F("#\t&_commandList[i]="));
+    DEBUG_PORT.println((int) &_commandList[i], HEX);
+    DEBUG_PORT.print(F("#\ttype_id["));DEBUG_PORT.print(_input_index);DEBUG_PORT.print(F("]="));
+    DEBUG_PORT.println(_commandList[i].type_id[_input_index]);
+    DEBUG_PORT.print(F("#\tname="));
+    DEBUG_PORT.println(_commandList[i].name);
     #endif
     if(strcmp(_commandList[i].name,name) == 0){
        //a match has been found, so save it and stop
        #ifdef PACKETCOMMAND_DEBUG
-       Serial.println(F("#\tmatch found"));
+       DEBUG_PORT.println(F("#\tmatch found"));
        #endif
        _current_command = _commandList[i];
        return PacketShared::SUCCESS;
@@ -350,9 +367,9 @@ PacketShared::STATUS PacketCommand::recv(bool& gotPacket) {
   uint32_t timestamp_micros = micros();
   gotPacket = false;
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::recv()"));
-  Serial.print(F("#\t_input_index="));Serial.println(_input_index);
-  Serial.print(F("#\t_input_len="));Serial.println(_input_len);
+  DEBUG_PORT.println(F("# In PacketCommand::recv()"));
+  DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
+  DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
   #endif
   //call the read callback which should load data into _input_buffer and set len
   if (_recv_callback != NULL){
@@ -360,7 +377,7 @@ PacketShared::STATUS PacketCommand::recv(bool& gotPacket) {
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("### Error: tried write using a NULL read callback function pointer"));
+    DEBUG_PORT.println(F("### Error: tried write using a NULL read callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -402,18 +419,18 @@ PacketShared::STATUS PacketCommand::matchCommand(){
   _current_command = _default_command;
   //parse out type_id from header
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::matchCommand"));
-  Serial.print(F("#\t_input_index="));Serial.println(_input_index);
-  Serial.print(F("#\t_input_len="));Serial.println(_input_len);
+  DEBUG_PORT.println(F("# In PacketCommand::matchCommand"));
+  DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
+  DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
   #endif
   while(_input_index < _input_len){
     cur_byte = _input_buffer[_input_index];
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.print(F("#\tcur_byte="));Serial.println(cur_byte,HEX);
+    DEBUG_PORT.print(F("#\tcur_byte="));DEBUG_PORT.println(cur_byte,HEX);
     #endif
     if (cur_byte != 0xFF and cur_byte != 0x00){ //valid type ID completed
       #ifdef PACKETCOMMAND_DEBUG
-      Serial.println(F("#\tvalid 'type ID' format detected"));
+      DEBUG_PORT.println(F("#\tvalid 'type ID' format detected"));
       #endif
       _current_command.type_id[_input_index] = cur_byte;
       break;
@@ -423,20 +440,20 @@ PacketShared::STATUS PacketCommand::matchCommand(){
       _input_index++;
       if (_input_index >= MAX_TYPE_ID_LEN){
         #ifdef PACKETCOMMAND_DEBUG
-        Serial.println(F("### Error: invalid 'type ID' detected, exceeded maximum length"));
+        DEBUG_PORT.println(F("### Error: invalid 'type ID' detected, exceeded maximum length"));
         #endif
         return PacketShared::ERROR_INVALID_TYPE_ID;
       }
       else if (_input_index >= _input_len ){  //0xFF cannot end the type_id
         #ifdef PACKETCOMMAND_DEBUG
-        Serial.println(F("### Error: invalid packet detected, 'type ID' does not terminate before reaching end of packet"));
+        DEBUG_PORT.println(F("### Error: invalid packet detected, 'type ID' does not terminate before reaching end of packet"));
         #endif
         return PacketShared::ERROR_INVALID_PACKET;
       }
     }
     else{ //must be 0x00
       #ifdef PACKETCOMMAND_DEBUG
-      Serial.println(F("### Error: invalid 'type ID' detected, cannot contain null (0x00) bytes"));
+      DEBUG_PORT.println(F("### Error: invalid 'type ID' detected, cannot contain null (0x00) bytes"));
       #endif
       return PacketShared::ERROR_INVALID_TYPE_ID;
     }
@@ -449,15 +466,15 @@ PacketShared::STATUS PacketCommand::matchCommand(){
   //not match since the unused bytes are initialized to 0x00.
   for(size_t i=0; i < _maxCommands; i++){
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.print(F("# Searching command at index="));
-    Serial.println(i);
-    Serial.print(F("#\ttype_id["));Serial.print(_input_index);Serial.print(F("]="));
-    Serial.println(_commandList[i].type_id[_input_index]);
+    DEBUG_PORT.print(F("# Searching command at index="));
+    DEBUG_PORT.println(i);
+    DEBUG_PORT.print(F("#\ttype_id["));DEBUG_PORT.print(_input_index);DEBUG_PORT.print(F("]="));
+    DEBUG_PORT.println(_commandList[i].type_id[_input_index]);
     #endif
     if(_commandList[i].type_id[_input_index] == cur_byte){
        //a match has been found, so save it and stop
        #ifdef PACKETCOMMAND_DEBUG
-       Serial.println(F("#match found"));
+       DEBUG_PORT.println(F("#match found"));
        #endif
        _current_command = _commandList[i];
        return moveInputBufferIndex(1);  //increment to prepare for data unpacking
@@ -466,14 +483,14 @@ PacketShared::STATUS PacketCommand::matchCommand(){
   //no type ID has been matched
   if (_default_command.function != NULL){  //set the default handler if it has been registered
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("# Setting the default command handler"));
+    DEBUG_PORT.println(F("# Setting the default command handler"));
     #endif
     _current_command.function = _default_command.function;
     return moveInputBufferIndex(1);  //increment to prepare for data unpacking
   }
   else{  //otherwise return and error condition
       #ifdef PACKETCOMMAND_DEBUG
-      Serial.println(F("# No match found for this packet's type ID"));
+      DEBUG_PORT.println(F("# No match found for this packet's type ID"));
       #endif
       return PacketShared::ERROR_NO_TYPE_ID_MATCH;
   }
@@ -499,7 +516,7 @@ PacketCommand::CommandInfo PacketCommand::getCurrentCommand() {
 */
 PacketShared::STATUS PacketCommand::dispatchCommand() {
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::dispatchCommand"));
+  DEBUG_PORT.println(F("# In PacketCommand::dispatchCommand"));
   #endif
   if (_current_command.function != NULL){
     (*_current_command.function)(*this);
@@ -507,7 +524,7 @@ PacketShared::STATUS PacketCommand::dispatchCommand() {
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("### Error: tried to dispatch a NULL handler function pointer"));
+    DEBUG_PORT.println(F("### Error: tried to dispatch a NULL handler function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -517,7 +534,7 @@ PacketShared::STATUS PacketCommand::dispatchCommand() {
 
 PacketShared::STATUS PacketCommand::setupOutputCommandByName(const char* name){
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::setupOutputCommandByName"));
+  DEBUG_PORT.println(F("# In PacketCommand::setupOutputCommandByName"));
   #endif
   PacketShared::STATUS pcs;
   pcs = lookupCommandByName(name);  //sets _current_command on SUCCESS
@@ -558,7 +575,7 @@ PacketShared::STATUS PacketCommand::send(bool& sentPacket){
       }
       else{
         #ifdef PACKETCOMMAND_DEBUG
-        Serial.println(F("### Error: appending send timestamp would overrun the output buffer"));
+        DEBUG_PORT.println(F("### Error: appending send timestamp would overrun the output buffer"));
         #endif
       }
     }
@@ -568,7 +585,7 @@ PacketShared::STATUS PacketCommand::send(bool& sentPacket){
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("### Error: tried to send using a NULL send callback function pointer"));
+    DEBUG_PORT.println(F("### Error: tried to send using a NULL send callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -585,7 +602,7 @@ PacketShared::STATUS PacketCommand::send_nonblocking(){
       }
       else{
         #ifdef PACKETCOMMAND_DEBUG
-        Serial.println(F("### Error: appending send timestamp would overrun the output buffer"));
+        DEBUG_PORT.println(F("### Error: appending send timestamp would overrun the output buffer"));
         #endif
       }
     }
@@ -595,7 +612,34 @@ PacketShared::STATUS PacketCommand::send_nonblocking(){
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("### Error: tried to send using a NULL send nonblocking callback function pointer"));
+    DEBUG_PORT.println(F("### Error: tried to send using a NULL send nonblocking callback function pointer"));
+    #endif
+    return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
+  }
+}
+
+// Use the '_send_buffered_callback' to send return packet
+PacketShared::STATUS PacketCommand::send_buffered(){
+  uint32_t timestamp_micros = micros();
+  if (_send_buffered_callback != NULL){
+    set_sendTimestamp(timestamp_micros);  //markdown the time write now
+    if (_output_flags & PacketShared::OPFLAG_APPEND_SEND_TIMESTAMP){
+      if ((_output_len + sizeof(uint32_t)) < PacketShared::DATA_BUFFER_SIZE){ //prevent buffer overrun
+        pack_uint32(timestamp_micros);
+      }
+      else{
+        #ifdef PACKETCOMMAND_DEBUG
+        DEBUG_PORT.println(F("### Error: appending send timestamp would overrun the output buffer"));
+        #endif
+      }
+    }
+    //call the nonblocking send callback
+    (*_send_buffered_callback)(*this);
+    return PacketShared::SUCCESS;
+  }
+  else{
+    #ifdef PACKETCOMMAND_DEBUG
+    DEBUG_PORT.println(F("### Error: tried to send using a NULL send_buffered_callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -615,7 +659,7 @@ PacketShared::STATUS PacketCommand::reply_send(){
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("### Error: tried to send using a NULL send callback function pointer"));
+    DEBUG_PORT.println(F("### Error: tried to send using a NULL send callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -631,7 +675,7 @@ PacketShared::STATUS PacketCommand::reply_recv(){
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("### Error: tried to receive using a NULL recv callback function pointer"));
+    DEBUG_PORT.println(F("### Error: tried to receive using a NULL recv callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -643,26 +687,26 @@ PacketShared::STATUS PacketCommand::reply_recv(){
 
 PacketShared::STATUS PacketCommand::assignInputBuffer(byte* buff, size_t len){
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::assignInputBuffer"));
-  Serial.print(F("#\tlen="));Serial.println(len);
-  Serial.print(F("#\t_inputBufferSize="));Serial.println(_inputBufferSize);
-  Serial.print(F("#\t_input_index="));Serial.println(_input_index);
-  Serial.print(F("#\t_input_len="));Serial.println(_input_len);
+//  DEBUG_PORT.println(F("# In PacketCommand::assignInputBuffer"));
+//  DEBUG_PORT.print(F("#\tlen="));DEBUG_PORT.println(len);
+//  DEBUG_PORT.print(F("#\t_inputBufferSize="));DEBUG_PORT.println(_inputBufferSize);
+//  DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
+//  DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
   #endif
   _input_buffer = buff;
   //check the input length before setting
   if (len <= _inputBufferSize){
     _input_len = len;
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("# (assignInputBuffer) after setting _input_len"));
-    Serial.print(F("#\t_input_index="));Serial.println(_input_index);
-    Serial.print(F("#\t_input_len="));Serial.println(_input_len);
+//    DEBUG_PORT.println(F("# (assignInputBuffer) after setting _input_len"));
+//    DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
+//    DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
     #endif
     return PacketShared::SUCCESS;
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.println(F("### Error: tried to receive data that would overrun input buffer"));
+    DEBUG_PORT.println(F("### Error: tried to receive data that would overrun input buffer"));
     #endif
     _input_len = _inputBufferSize; //set to safe value
     return PacketShared::ERROR_INPUT_BUFFER_OVERRUN;
@@ -700,7 +744,7 @@ PacketShared::STATUS PacketCommand::moveInputBufferIndex(int n){
     
 void PacketCommand::resetInputBuffer(){
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::resetInputBuffer"));
+  DEBUG_PORT.println(F("# In PacketCommand::resetInputBuffer"));
   #endif
   _input_index = 0;
   _input_len   = 0;
@@ -708,7 +752,7 @@ void PacketCommand::resetInputBuffer(){
 
 PacketShared::STATUS PacketCommand::enqueueInputBuffer(PacketQueue& pq){
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::enqueueInputBuffer"));
+  //DEBUG_PORT.println(F("# In PacketCommand::enqueueInputBuffer"));
   #endif
   //build a packet struct to hold current buffer state
   PacketShared::Packet pkt;
@@ -723,7 +767,7 @@ PacketShared::STATUS PacketCommand::enqueueInputBuffer(PacketQueue& pq){
 
 PacketShared::STATUS PacketCommand::dequeueInputBuffer(PacketQueue& pq){
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::dequeueInputBuffer"));
+  DEBUG_PORT.println(F("# In PacketCommand::dequeueInputBuffer"));
   #endif
   //build a packet struct to hold current buffer state
   PacketShared::Packet pkt;
@@ -733,6 +777,7 @@ PacketShared::STATUS PacketCommand::dequeueInputBuffer(PacketQueue& pq){
     _input_index = 0;
     _input_len = min(pkt.length, _inputBufferSize);
     _input_flags = pkt.flags;
+    _recv_timestamp_micros = pkt.timestamp; //FIXME make sure timestamp is in micros
     memcpy(_input_buffer, pkt.data, _input_len);
     return PacketShared::SUCCESS;
   }
@@ -741,6 +786,7 @@ PacketShared::STATUS PacketCommand::dequeueInputBuffer(PacketQueue& pq){
     _input_index = 0;
     _input_len   = 0;
     _input_flags = 0x00;
+    _recv_timestamp_micros = 0;
     return pqs;
   }
 }
@@ -779,7 +825,7 @@ PacketShared::STATUS PacketCommand::moveOutputBufferIndex(int n){
 
 PacketShared::STATUS PacketCommand::enqueueOutputBuffer(PacketQueue& pq){
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::enqueueOutputBuffer"));
+  DEBUG_PORT.println(F("# In PacketCommand::enqueueOutputBuffer"));
   #endif
   //build a packet struct to hold current buffer state
   PacketShared::Packet pkt;
@@ -794,7 +840,7 @@ PacketShared::STATUS PacketCommand::enqueueOutputBuffer(PacketQueue& pq){
 
 PacketShared::STATUS PacketCommand::dequeueOutputBuffer(PacketQueue& pq){
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::dequeueOutputBuffer"));
+  DEBUG_PORT.println(F("# In PacketCommand::dequeueOutputBuffer"));
   #endif
   //build a packet struct to hold current buffer state
   PacketShared::Packet pkt;
@@ -819,7 +865,7 @@ PacketShared::STATUS PacketCommand::dequeueOutputBuffer(PacketQueue& pq){
 PacketShared::STATUS PacketCommand::requeueOutputBuffer(PacketQueue& pq){
   //pushes output buffer onto the front of the queue
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::requeueOutputBuffer"));
+  DEBUG_PORT.println(F("# In PacketCommand::requeueOutputBuffer"));
   #endif
   //build a packet struct to hold current buffer state
   PacketShared::Packet pkt;

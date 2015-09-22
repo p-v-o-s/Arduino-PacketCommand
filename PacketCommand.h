@@ -34,7 +34,11 @@
 #include "PacketShared.h"
 
 // Uncomment the next line to run the library in debug mode (verbose messages)
-#define PACKETCOMMAND_DEBUG
+//#define PACKETCOMMAND_DEBUG
+
+#ifndef DEBUG_PORT
+  #define DEBUG_PORT Serial3
+#endif
 
 typedef float  float32_t;
 typedef double float64_t;
@@ -72,8 +76,9 @@ class PacketCommand{
     PacketShared::STATUS registerRecvCallback(bool (*function)(PacketCommand&));
     PacketShared::STATUS registerReplySendCallback(void (*function)(PacketCommand&));
     //output
-    PacketShared::STATUS registerSendCallback(bool (*function)(PacketCommand&));              // A callback which writes output to the interface
-    PacketShared::STATUS registerSendNonblockingCallback(void (*function)(PacketCommand&));   // A callback which schedules to writes output to the interface, returns immediately
+    PacketShared::STATUS registerSendCallback(bool (*function)(PacketCommand&));                  // A callback which writes output to the interface
+    PacketShared::STATUS registerSendNonblockingCallback(void (*function)(PacketCommand&));       // A callback which schedules to writes output to the interface, returns immediately
+    PacketShared::STATUS registerSendBufferedCallback(void (*function)(PacketCommand&));   // A callback which schedules to writes output to the interface's buffer, returns immediately
     PacketShared::STATUS registerReplyRecvCallback(bool (*function)(PacketCommand&));
     
     PacketShared::STATUS processInput();  //receive input, match command, and dispatch
@@ -87,8 +92,9 @@ class PacketCommand{
     PacketShared::STATUS matchCommand();        // Read the packet header from the input buffer and locate a matching registered handler function
     PacketShared::STATUS dispatchCommand();     // Call the current Command
     PacketShared::STATUS send();                // Use the '_send_callback' to send _output_buffer
-    PacketShared::STATUS send(bool& sentPacket);                // Use the '_send_callback' to send _output_buffer
+    PacketShared::STATUS send(bool& sentPacket);// Use the '_send_callback' to send _output_buffer
     PacketShared::STATUS send_nonblocking();    // Use the '_send_nonblocking_callback' to send _schedule the output_buffer contents to be sent, returning immediately
+    PacketShared::STATUS send_buffered();       // Use the '_send_buffered_callback' to send _schedule the output_buffer contents to be sent, returning immediately
     PacketShared::STATUS set_sendTimestamp(uint32_t timestamp_micros);
     PacketShared::STATUS reply_send();
     PacketShared::STATUS reply_recv();
@@ -184,6 +190,7 @@ class PacketCommand{
     //cached callbacks
     bool (*_send_callback)(PacketCommand& this_pCmd);
     void (*_send_nonblocking_callback)(PacketCommand& this_pCmd);
+    void (*_send_buffered_callback)(PacketCommand& this_pCmd);
     bool (*_recv_callback)(PacketCommand& this_pCmd);
     void (*_reply_send_callback)(PacketCommand& this_pCmd);
     bool (*_reply_recv_callback)(PacketCommand& this_pCmd);
