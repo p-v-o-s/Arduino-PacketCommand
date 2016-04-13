@@ -43,6 +43,7 @@ PacketShared::STATUS PacketQueue::begin(size_t capacity)
     pkt_slot = &(_slots[i]); //pull out the slot by address
     //pkt_slot->data = (byte*) calloc(_dataBufferSize, sizeof(byte));
     pkt_slot->length = 0;
+    pkt_slot->timestamp = 0;
     pkt_slot->flags  = 0x00;
   }
   _capacity = capacity;  //make sure to cache
@@ -169,8 +170,8 @@ void PacketQueue::_put_at(size_t index, PacketShared::Packet& pkt)
   DEBUG_PORT.println();
   #endif
   pkt_slot->length    = pkt.length; //update length field
-  pkt_slot->timestamp = pkt.timestamp; //update length field
-  pkt_slot->flags  = pkt.flags;
+  pkt_slot->timestamp = pkt.timestamp;
+  pkt_slot->flags     = pkt.flags;
 }
 
 void PacketQueue::_get_from(size_t index, PacketShared::Packet& pkt)
