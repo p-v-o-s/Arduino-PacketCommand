@@ -10,6 +10,10 @@
 //uncomment for debugging
 //#define PACKETQUEUE_DEBUG
 
+#ifndef DEBUG_PORT
+  #define DEBUG_PORT Serial3
+#endif
+
 class PacketQueue
 {
 public:
@@ -38,4 +42,4 @@ private:
   
 };
 
-#endif /* _PACKET_QUEUE_H_INCLUD */
+#endif /* _PACKET_QUEUE_H_INCLUDED */

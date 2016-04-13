@@ -545,8 +545,8 @@ PacketShared::STATUS PacketCommand::setupOutputCommandByName(const char* name){
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    Serial.print(F("### Error: lookupCommandByName failed with errocode: "));
-    Serial.println(pcs);
+    DEBUG_PORT.print(F("### Error: lookupCommandByName failed with errocode: "));
+    DEBUG_PORT.println(pcs);
     #endif
     return pcs;
   }
@@ -554,7 +554,7 @@ PacketShared::STATUS PacketCommand::setupOutputCommandByName(const char* name){
 
 PacketShared::STATUS PacketCommand::setupOutputCommand(PacketCommand::CommandInfo command){
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::setupOutputCommand"));
+  DEBUG_PORT.println(F("# In PacketCommand::setupOutputCommand"));
   #endif
   byte cur_byte;
   for(size_t i=0;i<MAX_TYPE_ID_LEN;i++){
@@ -577,9 +577,9 @@ PacketShared::STATUS PacketCommand::send(){
 PacketShared::STATUS PacketCommand::send(bool& sentPacket){
   uint32_t timestamp_micros = micros();
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::send"));
-  Serial.print(F("# \ttimestamp_micros: "));
-  Serial.println(timestamp_micros);
+  DEBUG_PORT.println(F("# In PacketCommand::send"));
+  DEBUG_PORT.print(F("# \ttimestamp_micros: "));
+  DEBUG_PORT.println(timestamp_micros);
   #endif
   if (_send_callback != NULL){
     set_sendTimestamp(timestamp_micros);  //markdown the time write now
@@ -609,9 +609,9 @@ PacketShared::STATUS PacketCommand::send(bool& sentPacket){
 PacketShared::STATUS PacketCommand::send_nonblocking(){
   uint32_t timestamp_micros = micros();
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::send_nonblocking"));
-  Serial.print(F("# \ttimestamp_micros: "));
-  Serial.println(timestamp_micros);
+  DEBUG_PORT.println(F("# In PacketCommand::send_nonblocking"));
+  DEBUG_PORT.print(F("# \ttimestamp_micros: "));
+  DEBUG_PORT.println(timestamp_micros);
   #endif
   if (_send_nonblocking_callback != NULL){
     set_sendTimestamp(timestamp_micros);  //markdown the time write now
@@ -841,18 +841,18 @@ PacketShared::STATUS PacketCommand::setOutputBufferIndex(int new_index){
 
 PacketShared::STATUS PacketCommand::moveOutputBufferIndex(int n){
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::moveOutputBufferIndex"));
-  Serial.print(F("# \t_output_index="));
-  Serial.println(_output_index);
-  Serial.print(F("# \tn="));
-  Serial.println(n);
+  DEBUG_PORT.println(F("# In PacketCommand::moveOutputBufferIndex"));
+  DEBUG_PORT.print(F("# \t_output_index="));
+  DEBUG_PORT.println(_output_index);
+  DEBUG_PORT.print(F("# \tn="));
+  DEBUG_PORT.println(n);
   #endif
   return setOutputBufferIndex(_output_index + n);
 }
 
 void PacketCommand::resetOutputBuffer(){
   #ifdef PACKETCOMMAND_DEBUG
-  Serial.println(F("# In PacketCommand::resetOutputBuffer"));
+  DEBUG_PORT.println(F("# In PacketCommand::resetOutputBuffer"));
   #endif
   _output_index = 0;
   _output_len   = 0;

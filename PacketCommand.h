@@ -34,7 +34,7 @@
 #include "PacketShared.h"
 
 // Uncomment the next line to run the library in debug mode (verbose messages)
-//#define PACKETCOMMAND_DEBUG
+#define PACKETCOMMAND_DEBUG
 
 #ifndef DEBUG_PORT
   #define DEBUG_PORT Serial3
