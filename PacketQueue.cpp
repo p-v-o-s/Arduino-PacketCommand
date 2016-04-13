@@ -168,7 +168,8 @@ void PacketQueue::_put_at(size_t index, PacketShared::Packet& pkt)
   #ifdef PACKETQUEUE_DEBUG
   Serial.println();
   #endif
-  pkt_slot->length = pkt.length; //update length field
+  pkt_slot->length    = pkt.length; //update length field
+  pkt_slot->timestamp = pkt.timestamp; //update length field
   pkt_slot->flags  = pkt.flags;
 }
 
@@ -193,6 +194,7 @@ void PacketQueue::_get_from(size_t index, PacketShared::Packet& pkt)
   #ifdef PACKETQUEUE_DEBUG
   Serial.println();
   #endif
-  pkt.length = min(pkt_slot->length,_dataBufferSize);
-  pkt.flags  = pkt_slot->flags;
+  pkt.length    = min(pkt_slot->length,_dataBufferSize);
+  pkt.timestamp = pkt_slot->timestamp;
+  pkt.flags     = pkt_slot->flags;
 }
