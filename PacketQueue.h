@@ -11,7 +11,7 @@
 //#define PACKETQUEUE_DEBUG
 
 #ifndef DEBUG_PORT
-  #define DEBUG_PORT Serial3
+  #define DEBUG_PORT Serial
 #endif
 
 class PacketQueue

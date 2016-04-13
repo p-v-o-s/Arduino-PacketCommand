@@ -37,7 +37,7 @@
 #define PACKETCOMMAND_DEBUG
 
 #ifndef DEBUG_PORT
-  #define DEBUG_PORT Serial3
+  #define DEBUG_PORT Serial
 #endif
 
 typedef float  float32_t;
