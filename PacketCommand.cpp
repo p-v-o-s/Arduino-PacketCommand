@@ -422,6 +422,12 @@ PacketShared::STATUS PacketCommand::matchCommand(){
   DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
   DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
   #endif
+  if (_input_index >= _input_len){
+    #ifdef PACKETCOMMAND_DEBUG
+    DEBUG_PORT.println(F("### Error: invalid 'type ID' detected, no packet data left"));
+    #endif
+    return PacketShared::ERROR_INVALID_TYPE_ID;
+  }
   while(_input_index < _input_len){
     cur_byte = _input_buffer[_input_index];
     #ifdef PACKETCOMMAND_DEBUG
