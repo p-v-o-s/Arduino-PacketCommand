@@ -341,8 +341,6 @@ PacketShared::STATUS PacketCommand::lookupCommandByName(const char* name){
     DEBUG_PORT.println(i);
     DEBUG_PORT.print(F("#\t&_commandList[i]="));
     DEBUG_PORT.println((int) &_commandList[i], HEX);
-    DEBUG_PORT.print(F("#\ttype_id["));DEBUG_PORT.print(_input_index);DEBUG_PORT.print(F("]="));
-    DEBUG_PORT.println(_commandList[i].type_id[_input_index]);
     DEBUG_PORT.print(F("#\tname="));
     DEBUG_PORT.println(_commandList[i].name);
     #endif
@@ -417,28 +415,38 @@ PacketShared::STATUS PacketCommand::set_recvTimestamp(uint32_t timestamp_micros)
 PacketShared::STATUS PacketCommand::matchCommand(){
   byte cur_byte = 0x00;
   _current_command = _default_command;
+  int type_id_index = 0;
   //parse out type_id from header
   #ifdef PACKETCOMMAND_DEBUG
   DEBUG_PORT.println(F("# In PacketCommand::matchCommand"));
   DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
   DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
   #endif
+  if (_input_index >= _input_len){
+    #ifdef PACKETCOMMAND_DEBUG
+    DEBUG_PORT.println(F("### Error: invalid 'type ID' detected, no packet data left"));
+    #endif
+    return PacketShared::ERROR_INVALID_TYPE_ID;
+  }
   while(_input_index < _input_len){
     cur_byte = _input_buffer[_input_index];
     #ifdef PACKETCOMMAND_DEBUG
     DEBUG_PORT.print(F("#\tcur_byte="));DEBUG_PORT.println(cur_byte,HEX);
+    DEBUG_PORT.print(F("#\t_type_id_index="));DEBUG_PORT.println(type_id_index);
     #endif
     if (cur_byte != 0xFF and cur_byte != 0x00){ //valid type ID completed
       #ifdef PACKETCOMMAND_DEBUG
       DEBUG_PORT.println(F("#\tvalid 'type ID' format detected"));
       #endif
-      _current_command.type_id[_input_index] = cur_byte;
+      _current_command.type_id[type_id_index] = cur_byte;
+      //CAUTION do not increment type_id_index or _input_index here!
       break;
     }  
     else if (cur_byte == 0xFF){ //extended type ID, need to check the next byte
-      _current_command.type_id[_input_index] = 0xFF;
+      _current_command.type_id[type_id_index] = 0xFF;
+      type_id_index++;
       _input_index++;
-      if (_input_index >= MAX_TYPE_ID_LEN){
+      if (type_id_index >= MAX_TYPE_ID_LEN){
         #ifdef PACKETCOMMAND_DEBUG
         DEBUG_PORT.println(F("### Error: invalid 'type ID' detected, exceeded maximum length"));
         #endif
@@ -458,7 +466,7 @@ PacketShared::STATUS PacketCommand::matchCommand(){
       return PacketShared::ERROR_INVALID_TYPE_ID;
     }
   }
-  //For a valid type ID 'cur_byte' will be euqal to its last byte and all previous
+  //For a valid type ID 'cur_byte' will be equal to its last byte and all previous
   //bytes, if they exist,  must have been 0xFF (or nothing), so we only need to check the 
   //corresponding byte for a match in the registered command list.  Also,
   //since pkt_index must be < MAX_TYPE_ID_LEN at this point, it should be within
@@ -468,10 +476,10 @@ PacketShared::STATUS PacketCommand::matchCommand(){
     #ifdef PACKETCOMMAND_DEBUG
     DEBUG_PORT.print(F("# Searching command at index="));
     DEBUG_PORT.println(i);
-    DEBUG_PORT.print(F("#\ttype_id["));DEBUG_PORT.print(_input_index);DEBUG_PORT.print(F("]="));
-    DEBUG_PORT.println(_commandList[i].type_id[_input_index]);
+    DEBUG_PORT.print(F("#\ttype_id["));DEBUG_PORT.print(type_id_index);DEBUG_PORT.print(F("]="));
+    DEBUG_PORT.println(_commandList[i].type_id[type_id_index]);
     #endif
-    if(_commandList[i].type_id[_input_index] == cur_byte){
+    if(_commandList[i].type_id[type_id_index] == cur_byte){
        //a match has been found, so save it and stop
        #ifdef PACKETCOMMAND_DEBUG
        DEBUG_PORT.println(F("#match found"));
