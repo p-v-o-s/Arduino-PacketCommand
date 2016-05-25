@@ -590,17 +590,17 @@ PacketShared::STATUS PacketCommand::send(bool& sentPacket){
   DEBUG_PORT.println(timestamp_micros);
   #endif
   if (_send_callback != NULL){
-    set_sendTimestamp(timestamp_micros);  //markdown the time write now
-    if (_output_flags & PacketShared::OPFLAG_APPEND_SEND_TIMESTAMP){
-      if ((_output_len + sizeof(uint32_t)) < PacketShared::DATA_BUFFER_SIZE){ //prevent buffer overrun
-        pack_uint32(timestamp_micros);
-      }
-      else{
-        #ifdef PACKETCOMMAND_DEBUG
-        DEBUG_PORT.println(F("### Error: appending send timestamp would overrun the output buffer"));
-        #endif
-      }
-    }
+//    set_sendTimestamp(timestamp_micros);  //markdown the time write now
+//    if (_output_flags & PacketShared::OPFLAG_APPEND_SEND_TIMESTAMP){
+//      if ((_output_len + sizeof(uint32_t)) < PacketShared::DATA_BUFFER_SIZE){ //prevent buffer overrun
+//        pack_uint32(timestamp_micros);
+//      }
+//      else{
+//        #ifdef PACKETCOMMAND_DEBUG
+//        DEBUG_PORT.println(F("### Error: appending send timestamp would overrun the output buffer"));
+//        #endif
+//      }
+//    }
     //call the callback!
     sentPacket = (*_send_callback)(*this);
     return PacketShared::SUCCESS;
@@ -622,17 +622,17 @@ PacketShared::STATUS PacketCommand::send_nonblocking(){
   DEBUG_PORT.println(timestamp_micros);
   #endif
   if (_send_nonblocking_callback != NULL){
-    set_sendTimestamp(timestamp_micros);  //markdown the time write now
-    if (_output_flags & PacketShared::OPFLAG_APPEND_SEND_TIMESTAMP){
-      if ((_output_len + sizeof(uint32_t)) < PacketShared::DATA_BUFFER_SIZE){ //prevent buffer overrun
-        pack_uint32(timestamp_micros);
-      }
-      else{
-        #ifdef PACKETCOMMAND_DEBUG
-        DEBUG_PORT.println(F("### Error: appending send timestamp would overrun the output buffer"));
-        #endif
-      }
-    }
+//    set_sendTimestamp(timestamp_micros);  //markdown the time write now
+//    if (_output_flags & PacketShared::OPFLAG_APPEND_SEND_TIMESTAMP){
+//      if ((_output_len + sizeof(uint32_t)) < PacketShared::DATA_BUFFER_SIZE){ //prevent buffer overrun
+//        pack_uint32(timestamp_micros);
+//      }
+//      else{
+//        #ifdef PACKETCOMMAND_DEBUG
+//        DEBUG_PORT.println(F("### Error: appending send timestamp would overrun the output buffer"));
+//        #endif
+//      }
+//    }
     //call the nonblocking send callback
     (*_send_nonblocking_callback)(*this);
     return PacketShared::SUCCESS;
@@ -649,17 +649,17 @@ PacketShared::STATUS PacketCommand::send_nonblocking(){
 PacketShared::STATUS PacketCommand::send_buffered(){
   uint32_t timestamp_micros = micros();
   if (_send_buffered_callback != NULL){
-    set_sendTimestamp(timestamp_micros);  //markdown the time write now
-    if (_output_flags & PacketShared::OPFLAG_APPEND_SEND_TIMESTAMP){
-      if ((_output_len + sizeof(uint32_t)) < PacketShared::DATA_BUFFER_SIZE){ //prevent buffer overrun
-        pack_uint32(timestamp_micros);
-      }
-      else{
-        #ifdef PACKETCOMMAND_DEBUG
-        DEBUG_PORT.println(F("### Error: appending send timestamp would overrun the output buffer"));
-        #endif
-      }
-    }
+//    set_sendTimestamp(timestamp_micros);  //markdown the time write now
+//    if (_output_flags & PacketShared::OPFLAG_APPEND_SEND_TIMESTAMP){
+//      if ((_output_len + sizeof(uint32_t)) < PacketShared::DATA_BUFFER_SIZE){ //prevent buffer overrun
+//        pack_uint32(timestamp_micros);
+//      }
+//      else{
+//        #ifdef PACKETCOMMAND_DEBUG
+//        DEBUG_PORT.println(F("### Error: appending send timestamp would overrun the output buffer"));
+//        #endif
+//      }
+//    }
     //call the nonblocking send callback
     (*_send_buffered_callback)(*this);
     return PacketShared::SUCCESS;
@@ -780,7 +780,7 @@ void PacketCommand::resetInputBuffer(){
 
 PacketShared::STATUS PacketCommand::enqueueInputBuffer(PacketQueue& pq){
   #ifdef PACKETCOMMAND_DEBUG
-  //DEBUG_PORT.println(F("# In PacketCommand::enqueueInputBuffer"));
+  DEBUG_PORT.println(F("# In PacketCommand::enqueueInputBuffer"));
   #endif
   //build a packet struct to hold current buffer state
   PacketShared::Packet pkt;
@@ -894,7 +894,7 @@ PacketShared::STATUS PacketCommand::dequeueOutputBuffer(PacketQueue& pq){
     _output_len = min(pkt.length, _outputBufferSize);
     _output_index = _output_len;  //IMPORTANT! set output index end of last entry so stuff could be added properly
     _output_flags = pkt.flags;
-    memcpy(_output_buffer, pkt.data, _input_len);
+    memcpy(_output_buffer, pkt.data, _output_len);
     return PacketShared::SUCCESS;
   }
   else{

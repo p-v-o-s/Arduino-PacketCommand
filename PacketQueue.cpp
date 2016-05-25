@@ -100,7 +100,7 @@ PacketShared::STATUS PacketQueue::enqueue(PacketShared::Packet& pkt)
 PacketShared::STATUS PacketQueue::dequeue(PacketShared::Packet& pkt)
 {
   #ifdef PACKETQUEUE_DEBUG
-  DEBUG_PORT.println(F("# In PacketQueue::dequeue"));
+  //DEBUG_PORT.println(F("# In PacketQueue::dequeue"));
   #endif
   if (_size > 0){
     _get_from(_beg_index, pkt);
@@ -116,7 +116,7 @@ PacketShared::STATUS PacketQueue::dequeue(PacketShared::Packet& pkt)
   }
   else{
     #ifdef PACKETQUEUE_DEBUG
-    DEBUG_PORT.println(F("### Error: Queue Underflow"));
+    //DEBUG_PORT.println(F("### Error: Queue Underflow"));
     #endif
     pkt.length = 0; //set to safe value
     return PacketShared::ERROR_QUEUE_UNDERFLOW;
