@@ -61,6 +61,13 @@ class PacketCommand{
       void (*function)(PacketCommand&);     //handler callback function
     };
     
+    // Command/handler info structure
+    struct InputProperties{
+      uint32_t from_addr;
+      uint32_t recv_timestamp;
+      int8_t   RSSI;
+    };
+    
     // Constructor
     PacketCommand(size_t maxCommands      = MAXCOMMANDS_DEFAULT,
                   size_t inputBufferSize  = INPUTBUFFERSIZE_DEFAULT,
@@ -100,19 +107,27 @@ class PacketCommand{
     PacketShared::STATUS reply_recv();
     
     PacketShared::STATUS assignInputBuffer(byte* buff, size_t len);
+    void   resetInputBuffer();
     byte*  getInputBuffer();
     int    getInputBufferIndex();
+    int    getInputBufferSize(){return _inputBufferSize;};
     size_t getInputLen(){return _input_len;};
     PacketShared::STATUS setInputBufferIndex(int new_index);
     PacketShared::STATUS moveInputBufferIndex(int n);
-    void   resetInputBuffer();
+    
+    void                   setInputProperties(struct InputProperties props){_input_properties=props;};
+    struct InputProperties getInputProperties(){return _input_properties;};
+    
     PacketShared::STATUS enqueueInputBuffer(PacketQueue& pq);
     PacketShared::STATUS dequeueInputBuffer(PacketQueue& pq);
     byte*  getOutputBuffer(){return _output_buffer;};
     int    getOutputBufferIndex();
+    int    getOutputBufferSize(){return _outputBufferSize;};
     size_t getOutputLen(){return _output_len;};
     PacketShared::STATUS setOutputBufferIndex(int new_index);
     byte   getOutputFlags(){return _output_flags;};
+    void     setOutputToAddress(uint32_t addr){_output_to_address = addr;};
+    uint32_t getOutputToAddress(){return _output_to_address;};
     void   flagOutputAsQuery(){_output_flags|=PacketShared::OPFLAG_IS_QUERY;};
     void   flagOutputAppendSendTimestamp(){_output_flags|=PacketShared::OPFLAG_APPEND_SEND_TIMESTAMP;};
     bool   outputIsQuery(){return (bool)_output_flags&PacketShared::OPFLAG_IS_QUERY;};
@@ -179,6 +194,7 @@ class PacketCommand{
     size_t   _input_index;
     size_t   _input_len;
     byte     _input_flags;
+    struct InputProperties _input_properties;
     uint32_t _recv_timestamp_micros;
     //track state of output buffer
     size_t _outputBufferSize;
@@ -186,6 +202,7 @@ class PacketCommand{
     size_t _output_index;
     size_t _output_len;
     byte   _output_flags;
+    uint32_t _output_to_address;
     uint32_t _send_timestamp_micros;
     //cached callbacks
     bool (*_send_callback)(PacketCommand& this_pCmd);

@@ -66,11 +66,14 @@ PacketShared::STATUS PacketCommand::reset(){
   _input_index = 0;
   _input_len   = 0;
   _input_flags = 0x00;
+  _input_properties.from_addr = 0;
+  _input_properties.RSSI      = 0;
   _recv_timestamp_micros = 0;
   //reset output buffer
   _output_index = 0;
   _output_len   = 0;
   _output_flags = 0x00;
+  _output_to_address = 0;
   //null out unregistered callbacks
   _recv_callback = NULL;
   _reply_send_callback = NULL;
