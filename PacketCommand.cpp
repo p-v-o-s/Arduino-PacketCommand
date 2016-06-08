@@ -95,27 +95,27 @@ PacketShared::STATUS PacketCommand::addCommand(const byte* type_id,
   size_t type_id_len = strlen((char*) type_id);
   struct CommandInfo new_command;
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# in PacketCommand::addCommand"));
-  DEBUG_PORT.print(F("#\tAdding command #("));
-  DEBUG_PORT.print(_commandCount);
-  DEBUG_PORT.print(F("): "));
-  DEBUG_PORT.println(name);
-  DEBUG_PORT.print("'");
-  DEBUG_PORT.print((char *) type_id);
-  DEBUG_PORT.println("'");
-  DEBUG_PORT.println(type_id_len);
+  PACKETCOMMAND_DEBUG_PORT.println(F("# in PacketCommand::addCommand"));
+  PACKETCOMMAND_DEBUG_PORT.print(F("#\tAdding command #("));
+  PACKETCOMMAND_DEBUG_PORT.print(_commandCount);
+  PACKETCOMMAND_DEBUG_PORT.print(F("): "));
+  PACKETCOMMAND_DEBUG_PORT.println(name);
+  PACKETCOMMAND_DEBUG_PORT.print("'");
+  PACKETCOMMAND_DEBUG_PORT.print((char *) type_id);
+  PACKETCOMMAND_DEBUG_PORT.println("'");
+  PACKETCOMMAND_DEBUG_PORT.println(type_id_len);
   #endif
   if (_commandCount >= _maxCommands - 1){
       #ifdef PACKETCOMMAND_DEBUG
-      DEBUG_PORT.print(F("### Error: exceeded maxCommands="));
-      DEBUG_PORT.println(_maxCommands);
+      PACKETCOMMAND_DEBUG_PORT.print(F("### Error: exceeded maxCommands="));
+      PACKETCOMMAND_DEBUG_PORT.println(_maxCommands);
       #endif
       return PacketShared::ERROR_EXCEDED_MAX_COMMANDS;
   }
   if (type_id_len > MAX_TYPE_ID_LEN){
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.print(F("### Error: 'type_id' cannot exceed MAX_TYPE_ID_LEN="));
-    DEBUG_PORT.println(MAX_TYPE_ID_LEN);
+    PACKETCOMMAND_DEBUG_PORT.print(F("### Error: 'type_id' cannot exceed MAX_TYPE_ID_LEN="));
+    PACKETCOMMAND_DEBUG_PORT.println(MAX_TYPE_ID_LEN);
     #endif
     return PacketShared::ERROR_INVALID_TYPE_ID;
   }
@@ -125,43 +125,43 @@ PacketShared::STATUS PacketCommand::addCommand(const byte* type_id,
       //test if the type ID rules are followed
       cur_byte = type_id[i];
       #ifdef PACKETCOMMAND_DEBUG
-      DEBUG_PORT.print(F("#\ti="));
-      DEBUG_PORT.println(i);
-      DEBUG_PORT.print(F("#\tchecking type ID byte: "));
-      DEBUG_PORT.println(cur_byte, HEX);
+      PACKETCOMMAND_DEBUG_PORT.print(F("#\ti="));
+      PACKETCOMMAND_DEBUG_PORT.println(i);
+      PACKETCOMMAND_DEBUG_PORT.print(F("#\tchecking type ID byte: "));
+      PACKETCOMMAND_DEBUG_PORT.println(cur_byte, HEX);
       #endif
       switch(cur_byte){
         case 0xFF:
           if (i < (type_id_len - 1)){
             //continue extended type ID
             #ifdef PACKETCOMMAND_DEBUG
-            DEBUG_PORT.println(F("#\tcontinue extended type ID"));
+            PACKETCOMMAND_DEBUG_PORT.println(F("#\tcontinue extended type ID"));
             #endif
             new_command.type_id[i] = 0xFF;
           }
           else{//cannot end type_id with 0xFF
             #ifdef PACKETCOMMAND_DEBUG
-            DEBUG_PORT.println(F("### Error: 'type_id' cannot end with 0xFF"));
+            PACKETCOMMAND_DEBUG_PORT.println(F("### Error: 'type_id' cannot end with 0xFF"));
             #endif
             return PacketShared::ERROR_INVALID_TYPE_ID;
           }
           break;
         case 0x00:
           #ifdef PACKETCOMMAND_DEBUG
-          DEBUG_PORT.println(F("### Error: 'type_id' cannot contain null (0x00) bytes"));
+          PACKETCOMMAND_DEBUG_PORT.println(F("### Error: 'type_id' cannot contain null (0x00) bytes"));
           #endif
           return PacketShared::ERROR_INVALID_TYPE_ID;
           break;
         default:  //any other byte value
           if(i == (type_id_len - 1)){//valid type ID completed
             #ifdef PACKETCOMMAND_DEBUG
-            DEBUG_PORT.println(F("#\tvalid type ID completed"));
+            PACKETCOMMAND_DEBUG_PORT.println(F("#\tvalid type ID completed"));
             #endif
             new_command.type_id[i] = cur_byte;
           }
           else{
             #ifdef PACKETCOMMAND_DEBUG
-            DEBUG_PORT.println(F("### Error: 'type_id' cannot have a prefix != [0xFF]*"));
+            PACKETCOMMAND_DEBUG_PORT.println(F("### Error: 'type_id' cannot have a prefix != [0xFF]*"));
             #endif
             return PacketShared::ERROR_INVALID_TYPE_ID;
           }
@@ -174,13 +174,13 @@ PacketShared::STATUS PacketCommand::addCommand(const byte* type_id,
     }
   }
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.print(F("#\ttype_id="));
+  PACKETCOMMAND_DEBUG_PORT.print(F("#\ttype_id="));
   for(size_t i=0; i < MAX_TYPE_ID_LEN; i++){
     if( new_command.type_id[i] != 0x00 ){
-      DEBUG_PORT.print(new_command.type_id[i], HEX);
+      PACKETCOMMAND_DEBUG_PORT.print(new_command.type_id[i], HEX);
     }
   }
-  DEBUG_PORT.println();
+  PACKETCOMMAND_DEBUG_PORT.println();
   #endif
   //finish formatting command info
   new_command.name     = name;
@@ -293,32 +293,32 @@ PacketShared::STATUS PacketCommand::registerReplyRecvCallback(bool (*function)(P
  */
 PacketShared::STATUS PacketCommand::processInput(){
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::processInput"));
-  DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
-  DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::processInput"));
+  PACKETCOMMAND_DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
+  PACKETCOMMAND_DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
   #endif
   PacketShared::STATUS pcs = matchCommand();
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# (processInput)-after calling matchCommand()"));
-  DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
-  DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
+  PACKETCOMMAND_DEBUG_PORT.println(F("# (processInput)-after calling matchCommand()"));
+  PACKETCOMMAND_DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
+  PACKETCOMMAND_DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
   #endif
   if (pcs == PacketShared::SUCCESS){  //a command was matched
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.print(F("# (processInput)-matched command: "));
+    PACKETCOMMAND_DEBUG_PORT.print(F("# (processInput)-matched command: "));
     CommandInfo cmd = getCurrentCommand();
-    DEBUG_PORT.println(cmd.name);
+    PACKETCOMMAND_DEBUG_PORT.println(cmd.name);
     #endif
   }
   else if (pcs == PacketShared::ERROR_NO_TYPE_ID_MATCH){  //valid ID but no command was matched
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.println(F("# (processInput)-no matched command"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("# (processInput)-no matched command"));
     #endif
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.print(F("### Error: pCmd.matchCommand returned status code: "));
-    DEBUG_PORT.println(pcs);
+    PACKETCOMMAND_DEBUG_PORT.print(F("### Error: pCmd.matchCommand returned status code: "));
+    PACKETCOMMAND_DEBUG_PORT.println(pcs);
     #endif
     return pcs;
   }
@@ -331,23 +331,23 @@ PacketShared::STATUS PacketCommand::processInput(){
 PacketShared::STATUS PacketCommand::lookupCommandByName(const char* name){
   _current_command = _default_command;
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::lookupCommandByName"));
-  DEBUG_PORT.print(F("#\tSearching for command named = "));
-  DEBUG_PORT.println(name);
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::lookupCommandByName"));
+  PACKETCOMMAND_DEBUG_PORT.print(F("#\tSearching for command named = "));
+  PACKETCOMMAND_DEBUG_PORT.println(name);
   #endif
   for(size_t i=0; i < _maxCommands; i++){
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.print(F("#\tsearching command at index="));
-    DEBUG_PORT.println(i);
-    DEBUG_PORT.print(F("#\t&_commandList[i]="));
-    DEBUG_PORT.println((int) &_commandList[i], HEX);
-    DEBUG_PORT.print(F("#\tname="));
-    DEBUG_PORT.println(_commandList[i].name);
+    PACKETCOMMAND_DEBUG_PORT.print(F("#\tsearching command at index="));
+    PACKETCOMMAND_DEBUG_PORT.println(i);
+    PACKETCOMMAND_DEBUG_PORT.print(F("#\t&_commandList[i]="));
+    PACKETCOMMAND_DEBUG_PORT.println((int) &_commandList[i], HEX);
+    PACKETCOMMAND_DEBUG_PORT.print(F("#\tname="));
+    PACKETCOMMAND_DEBUG_PORT.println(_commandList[i].name);
     #endif
     if(strcmp(_commandList[i].name,name) == 0){
        //a match has been found, so save it and stop
        #ifdef PACKETCOMMAND_DEBUG
-       DEBUG_PORT.println(F("#\tmatch found"));
+       PACKETCOMMAND_DEBUG_PORT.println(F("#\tmatch found"));
        #endif
        _current_command = _commandList[i];
        return PacketShared::SUCCESS;
@@ -365,9 +365,9 @@ PacketShared::STATUS PacketCommand::recv(bool& gotPacket) {
   uint32_t timestamp_micros = micros();
   gotPacket = false;
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::recv()"));
-  DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
-  DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::recv()"));
+  PACKETCOMMAND_DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
+  PACKETCOMMAND_DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
   #endif
   //call the read callback which should load data into _input_buffer and set len
   if (_recv_callback != NULL){
@@ -375,7 +375,7 @@ PacketShared::STATUS PacketCommand::recv(bool& gotPacket) {
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.println(F("### Error: tried write using a NULL read callback function pointer"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried write using a NULL read callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -418,25 +418,25 @@ PacketShared::STATUS PacketCommand::matchCommand(){
   int type_id_index = 0;
   //parse out type_id from header
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::matchCommand"));
-  DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
-  DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::matchCommand"));
+  PACKETCOMMAND_DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
+  PACKETCOMMAND_DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
   #endif
   if (_input_index >= _input_len){
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.println(F("### Error: invalid 'type ID' detected, no packet data left"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: invalid 'type ID' detected, no packet data left"));
     #endif
     return PacketShared::ERROR_INVALID_TYPE_ID;
   }
   while(_input_index < _input_len){
     cur_byte = _input_buffer[_input_index];
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.print(F("#\tcur_byte="));DEBUG_PORT.println(cur_byte,HEX);
-    DEBUG_PORT.print(F("#\t_type_id_index="));DEBUG_PORT.println(type_id_index);
+    PACKETCOMMAND_DEBUG_PORT.print(F("#\tcur_byte="));DEBUG_PORT.println(cur_byte,HEX);
+    PACKETCOMMAND_DEBUG_PORT.print(F("#\t_type_id_index="));DEBUG_PORT.println(type_id_index);
     #endif
     if (cur_byte != 0xFF and cur_byte != 0x00){ //valid type ID completed
       #ifdef PACKETCOMMAND_DEBUG
-      DEBUG_PORT.println(F("#\tvalid 'type ID' format detected"));
+      PACKETCOMMAND_DEBUG_PORT.println(F("#\tvalid 'type ID' format detected"));
       #endif
       _current_command.type_id[type_id_index] = cur_byte;
       //CAUTION do not increment type_id_index or _input_index here!
@@ -448,20 +448,20 @@ PacketShared::STATUS PacketCommand::matchCommand(){
       _input_index++;
       if (type_id_index >= MAX_TYPE_ID_LEN){
         #ifdef PACKETCOMMAND_DEBUG
-        DEBUG_PORT.println(F("### Error: invalid 'type ID' detected, exceeded maximum length"));
+        PACKETCOMMAND_DEBUG_PORT.println(F("### Error: invalid 'type ID' detected, exceeded maximum length"));
         #endif
         return PacketShared::ERROR_INVALID_TYPE_ID;
       }
       else if (_input_index >= _input_len ){  //0xFF cannot end the type_id
         #ifdef PACKETCOMMAND_DEBUG
-        DEBUG_PORT.println(F("### Error: invalid packet detected, 'type ID' does not terminate before reaching end of packet"));
+        PACKETCOMMAND_DEBUG_PORT.println(F("### Error: invalid packet detected, 'type ID' does not terminate before reaching end of packet"));
         #endif
         return PacketShared::ERROR_INVALID_PACKET;
       }
     }
     else{ //must be 0x00
       #ifdef PACKETCOMMAND_DEBUG
-      DEBUG_PORT.println(F("### Error: invalid 'type ID' detected, cannot contain null (0x00) bytes"));
+      PACKETCOMMAND_DEBUG_PORT.println(F("### Error: invalid 'type ID' detected, cannot contain null (0x00) bytes"));
       #endif
       return PacketShared::ERROR_INVALID_TYPE_ID;
     }
@@ -474,15 +474,15 @@ PacketShared::STATUS PacketCommand::matchCommand(){
   //not match since the unused bytes are initialized to 0x00.
   for(size_t i=0; i < _maxCommands; i++){
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.print(F("# Searching command at index="));
-    DEBUG_PORT.println(i);
-    DEBUG_PORT.print(F("#\ttype_id["));DEBUG_PORT.print(type_id_index);DEBUG_PORT.print(F("]="));
-    DEBUG_PORT.println(_commandList[i].type_id[type_id_index]);
+    PACKETCOMMAND_DEBUG_PORT.print(F("# Searching command at index="));
+    PACKETCOMMAND_DEBUG_PORT.println(i);
+    PACKETCOMMAND_DEBUG_PORT.print(F("#\ttype_id["));DEBUG_PORT.print(type_id_index);DEBUG_PORT.print(F("]="));
+    PACKETCOMMAND_DEBUG_PORT.println(_commandList[i].type_id[type_id_index]);
     #endif
     if(_commandList[i].type_id[type_id_index] == cur_byte){
        //a match has been found, so save it and stop
        #ifdef PACKETCOMMAND_DEBUG
-       DEBUG_PORT.println(F("#match found"));
+       PACKETCOMMAND_DEBUG_PORT.println(F("#match found"));
        #endif
        _current_command = _commandList[i];
        return moveInputBufferIndex(1);  //increment to prepare for data unpacking
@@ -491,14 +491,14 @@ PacketShared::STATUS PacketCommand::matchCommand(){
   //no type ID has been matched
   if (_default_command.function != NULL){  //set the default handler if it has been registered
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.println(F("# Setting the default command handler"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("# Setting the default command handler"));
     #endif
     _current_command.function = _default_command.function;
     return moveInputBufferIndex(1);  //increment to prepare for data unpacking
   }
   else{  //otherwise return and error condition
       #ifdef PACKETCOMMAND_DEBUG
-      DEBUG_PORT.println(F("# No match found for this packet's type ID"));
+      PACKETCOMMAND_DEBUG_PORT.println(F("# No match found for this packet's type ID"));
       #endif
       return PacketShared::ERROR_NO_TYPE_ID_MATCH;
   }
@@ -524,7 +524,7 @@ PacketCommand::CommandInfo PacketCommand::getCurrentCommand() {
 */
 PacketShared::STATUS PacketCommand::dispatchCommand() {
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::dispatchCommand"));
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::dispatchCommand"));
   #endif
   if (_current_command.function != NULL){
     (*_current_command.function)(*this);
@@ -532,7 +532,7 @@ PacketShared::STATUS PacketCommand::dispatchCommand() {
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.println(F("### Error: tried to dispatch a NULL handler function pointer"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to dispatch a NULL handler function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -542,7 +542,7 @@ PacketShared::STATUS PacketCommand::dispatchCommand() {
 
 PacketShared::STATUS PacketCommand::setupOutputCommandByName(const char* name){
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::setupOutputCommandByName"));
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::setupOutputCommandByName"));
   #endif
   PacketShared::STATUS pcs;
   pcs = lookupCommandByName(name);  //sets _current_command on SUCCESS
@@ -553,8 +553,8 @@ PacketShared::STATUS PacketCommand::setupOutputCommandByName(const char* name){
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.print(F("### Error: lookupCommandByName failed with errocode: "));
-    DEBUG_PORT.println(pcs);
+    PACKETCOMMAND_DEBUG_PORT.print(F("### Error: lookupCommandByName failed with errocode: "));
+    PACKETCOMMAND_DEBUG_PORT.println(pcs);
     #endif
     return pcs;
   }
@@ -562,7 +562,7 @@ PacketShared::STATUS PacketCommand::setupOutputCommandByName(const char* name){
 
 PacketShared::STATUS PacketCommand::setupOutputCommand(PacketCommand::CommandInfo command){
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::setupOutputCommand"));
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::setupOutputCommand"));
   #endif
   byte cur_byte;
   for(size_t i=0;i<MAX_TYPE_ID_LEN;i++){
@@ -585,9 +585,9 @@ PacketShared::STATUS PacketCommand::send(){
 PacketShared::STATUS PacketCommand::send(bool& sentPacket){
   uint32_t timestamp_micros = micros();
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::send"));
-  DEBUG_PORT.print(F("# \ttimestamp_micros: "));
-  DEBUG_PORT.println(timestamp_micros);
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::send"));
+  PACKETCOMMAND_DEBUG_PORT.print(F("# \ttimestamp_micros: "));
+  PACKETCOMMAND_DEBUG_PORT.println(timestamp_micros);
   #endif
   if (_send_callback != NULL){
 //    set_sendTimestamp(timestamp_micros);  //markdown the time write now
@@ -597,7 +597,7 @@ PacketShared::STATUS PacketCommand::send(bool& sentPacket){
 //      }
 //      else{
 //        #ifdef PACKETCOMMAND_DEBUG
-//        DEBUG_PORT.println(F("### Error: appending send timestamp would overrun the output buffer"));
+//        PACKETCOMMAND_DEBUG_PORT.println(F("### Error: appending send timestamp would overrun the output buffer"));
 //        #endif
 //      }
 //    }
@@ -607,7 +607,7 @@ PacketShared::STATUS PacketCommand::send(bool& sentPacket){
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.println(F("### Error: tried to send using a NULL send callback function pointer"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to send using a NULL send callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -617,9 +617,9 @@ PacketShared::STATUS PacketCommand::send(bool& sentPacket){
 PacketShared::STATUS PacketCommand::send_nonblocking(){
   uint32_t timestamp_micros = micros();
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::send_nonblocking"));
-  DEBUG_PORT.print(F("# \ttimestamp_micros: "));
-  DEBUG_PORT.println(timestamp_micros);
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::send_nonblocking"));
+  PACKETCOMMAND_DEBUG_PORT.print(F("# \ttimestamp_micros: "));
+  PACKETCOMMAND_DEBUG_PORT.println(timestamp_micros);
   #endif
   if (_send_nonblocking_callback != NULL){
 //    set_sendTimestamp(timestamp_micros);  //markdown the time write now
@@ -629,7 +629,7 @@ PacketShared::STATUS PacketCommand::send_nonblocking(){
 //      }
 //      else{
 //        #ifdef PACKETCOMMAND_DEBUG
-//        DEBUG_PORT.println(F("### Error: appending send timestamp would overrun the output buffer"));
+//        PACKETCOMMAND_DEBUG_PORT.println(F("### Error: appending send timestamp would overrun the output buffer"));
 //        #endif
 //      }
 //    }
@@ -639,7 +639,7 @@ PacketShared::STATUS PacketCommand::send_nonblocking(){
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.println(F("### Error: tried to send using a NULL send nonblocking callback function pointer"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to send using a NULL send nonblocking callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -656,7 +656,7 @@ PacketShared::STATUS PacketCommand::send_buffered(){
 //      }
 //      else{
 //        #ifdef PACKETCOMMAND_DEBUG
-//        DEBUG_PORT.println(F("### Error: appending send timestamp would overrun the output buffer"));
+//        PACKETCOMMAND_DEBUG_PORT.println(F("### Error: appending send timestamp would overrun the output buffer"));
 //        #endif
 //      }
 //    }
@@ -666,7 +666,7 @@ PacketShared::STATUS PacketCommand::send_buffered(){
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.println(F("### Error: tried to send using a NULL send_buffered_callback function pointer"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to send using a NULL send_buffered_callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -686,7 +686,7 @@ PacketShared::STATUS PacketCommand::reply_send(){
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.println(F("### Error: tried to send using a NULL send callback function pointer"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to send using a NULL send callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -702,7 +702,7 @@ PacketShared::STATUS PacketCommand::reply_recv(){
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.println(F("### Error: tried to receive using a NULL recv callback function pointer"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to receive using a NULL recv callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -714,26 +714,26 @@ PacketShared::STATUS PacketCommand::reply_recv(){
 
 PacketShared::STATUS PacketCommand::assignInputBuffer(byte* buff, size_t len){
   #ifdef PACKETCOMMAND_DEBUG
-//  DEBUG_PORT.println(F("# In PacketCommand::assignInputBuffer"));
-//  DEBUG_PORT.print(F("#\tlen="));DEBUG_PORT.println(len);
-//  DEBUG_PORT.print(F("#\t_inputBufferSize="));DEBUG_PORT.println(_inputBufferSize);
-//  DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
-//  DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
+//  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::assignInputBuffer"));
+//  PACKETCOMMAND_DEBUG_PORT.print(F("#\tlen="));DEBUG_PORT.println(len);
+//  PACKETCOMMAND_DEBUG_PORT.print(F("#\t_inputBufferSize="));DEBUG_PORT.println(_inputBufferSize);
+//  PACKETCOMMAND_DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
+//  PACKETCOMMAND_DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
   #endif
   _input_buffer = buff;
   //check the input length before setting
   if (len <= _inputBufferSize){
     _input_len = len;
     #ifdef PACKETCOMMAND_DEBUG
-//    DEBUG_PORT.println(F("# (assignInputBuffer) after setting _input_len"));
-//    DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
-//    DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
+//    PACKETCOMMAND_DEBUG_PORT.println(F("# (assignInputBuffer) after setting _input_len"));
+//    PACKETCOMMAND_DEBUG_PORT.print(F("#\t_input_index="));DEBUG_PORT.println(_input_index);
+//    PACKETCOMMAND_DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
     #endif
     return PacketShared::SUCCESS;
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    DEBUG_PORT.println(F("### Error: tried to receive data that would overrun input buffer"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to receive data that would overrun input buffer"));
     #endif
     _input_len = _inputBufferSize; //set to safe value
     return PacketShared::ERROR_INPUT_BUFFER_OVERRUN;
@@ -771,7 +771,7 @@ PacketShared::STATUS PacketCommand::moveInputBufferIndex(int n){
     
 void PacketCommand::resetInputBuffer(){
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::resetInputBuffer"));
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::resetInputBuffer"));
   #endif
   _input_index = 0;
   _input_len   = 0;
@@ -780,7 +780,7 @@ void PacketCommand::resetInputBuffer(){
 
 PacketShared::STATUS PacketCommand::enqueueInputBuffer(PacketQueue& pq){
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::enqueueInputBuffer"));
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::enqueueInputBuffer"));
   #endif
   //build a packet struct to hold current buffer state
   PacketShared::Packet pkt;
@@ -795,7 +795,7 @@ PacketShared::STATUS PacketCommand::enqueueInputBuffer(PacketQueue& pq){
 
 PacketShared::STATUS PacketCommand::dequeueInputBuffer(PacketQueue& pq){
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::dequeueInputBuffer"));
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::dequeueInputBuffer"));
   #endif
   //build a packet struct to hold current buffer state
   PacketShared::Packet pkt;
@@ -849,18 +849,18 @@ PacketShared::STATUS PacketCommand::setOutputBufferIndex(int new_index){
 
 PacketShared::STATUS PacketCommand::moveOutputBufferIndex(int n){
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::moveOutputBufferIndex"));
-  DEBUG_PORT.print(F("# \t_output_index="));
-  DEBUG_PORT.println(_output_index);
-  DEBUG_PORT.print(F("# \tn="));
-  DEBUG_PORT.println(n);
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::moveOutputBufferIndex"));
+  PACKETCOMMAND_DEBUG_PORT.print(F("# \t_output_index="));
+  PACKETCOMMAND_DEBUG_PORT.println(_output_index);
+  PACKETCOMMAND_DEBUG_PORT.print(F("# \tn="));
+  PACKETCOMMAND_DEBUG_PORT.println(n);
   #endif
   return setOutputBufferIndex(_output_index + n);
 }
 
 void PacketCommand::resetOutputBuffer(){
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::resetOutputBuffer"));
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::resetOutputBuffer"));
   #endif
   _output_index = 0;
   _output_len   = 0;
@@ -869,7 +869,7 @@ void PacketCommand::resetOutputBuffer(){
 
 PacketShared::STATUS PacketCommand::enqueueOutputBuffer(PacketQueue& pq){
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::enqueueOutputBuffer"));
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::enqueueOutputBuffer"));
   #endif
   //build a packet struct to hold current buffer state
   PacketShared::Packet pkt;
@@ -884,7 +884,7 @@ PacketShared::STATUS PacketCommand::enqueueOutputBuffer(PacketQueue& pq){
 
 PacketShared::STATUS PacketCommand::dequeueOutputBuffer(PacketQueue& pq){
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::dequeueOutputBuffer"));
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::dequeueOutputBuffer"));
   #endif
   //build a packet struct to hold current buffer state
   PacketShared::Packet pkt;
@@ -909,7 +909,7 @@ PacketShared::STATUS PacketCommand::dequeueOutputBuffer(PacketQueue& pq){
 PacketShared::STATUS PacketCommand::requeueOutputBuffer(PacketQueue& pq){
   //pushes output buffer onto the front of the queue
   #ifdef PACKETCOMMAND_DEBUG
-  DEBUG_PORT.println(F("# In PacketCommand::requeueOutputBuffer"));
+  PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::requeueOutputBuffer"));
   #endif
   //build a packet struct to hold current buffer state
   PacketShared::Packet pkt;

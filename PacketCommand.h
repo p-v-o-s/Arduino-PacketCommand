@@ -36,8 +36,12 @@
 // Uncomment the next line to run the library in debug mode (verbose messages)
 //#define PACKETCOMMAND_DEBUG
 
-#ifndef DEBUG_PORT
-  #define DEBUG_PORT Serial
+#ifdef PACKETCOMMAND_DEBUG
+  #ifdef DEBUG_PORT
+    #define PACKETCOMMAND_DEBUG_PORT DEBUG_PORT
+  #else
+    #define PACKETCOMMAND_DEBUG_PORT Serial
+  #endif
 #endif
 
 typedef float  float32_t;

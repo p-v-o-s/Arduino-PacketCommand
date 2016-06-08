@@ -10,8 +10,12 @@
 //uncomment for debugging
 //#define PACKETQUEUE_DEBUG
 
-#ifndef DEBUG_PORT
-  #define DEBUG_PORT Serial
+#ifdef PACKETQUEUE_DEBUG
+  #ifdef DEBUG_PORT
+    #define PACKETQUEUE_DEBUG_PORT DEBUG_PORT
+  #else
+    #define PACKETQUEUE_DEBUG_PORT Serial
+  #endif
 #endif
 
 class PacketQueue
