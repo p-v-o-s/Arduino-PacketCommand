@@ -1,5 +1,5 @@
 /**
- * PacketCommand - A Wiring/Arduino library to 
+ * PacketCommand - An Arduino library to 
  * 
  * Copyright (C) 2015 Craig Versek (cversek@gmail.com)
  *
@@ -18,6 +18,7 @@
  */
 #include "PacketCommand.h"
 
+#include <Arduino.h>
 
 /**
  * Constructor makes sure some things are set.
@@ -35,7 +36,7 @@ PacketCommand::PacketCommand(size_t maxCommands,
      allocateInputBuffer(inputBufferSize);
   }
   else{ //do not allocate anything
-    _input_buffer = NULL;
+    _input_buffer = nullptr;
   }
   //allocate memory for the output buffer
   _outputBufferSize = outputBufferSize;
@@ -43,7 +44,7 @@ PacketCommand::PacketCommand(size_t maxCommands,
      allocateOutputBuffer(outputBufferSize);
   }
   else{ //do not allocate anything
-    _output_buffer = NULL;
+    _output_buffer = nullptr;
   }
   reset();
 }
@@ -59,7 +60,7 @@ PacketShared::STATUS PacketCommand::reset(){
       _commandList[i].type_id[j] = 0x00;
     }
     _commandList[i].name = "";
-    _commandList[i].function = NULL;
+    _commandList[i].function = nullptr;
   }
   _commandCount = 0;
   //reset input buffer
@@ -75,11 +76,11 @@ PacketShared::STATUS PacketCommand::reset(){
   _output_flags = 0x00;
   _output_to_address = 0;
   //null out unregistered callbacks
-  _recv_callback = NULL;
-  _reply_send_callback = NULL;
-  _send_callback = NULL;
-  _send_nonblocking_callback = NULL;
-  _reply_recv_callback = NULL;
+  _recv_callback = nullptr;
+  _reply_send_callback = nullptr;
+  _send_callback = nullptr;
+  _send_nonblocking_callback = nullptr;
+  _reply_recv_callback = nullptr;
   return PacketShared::SUCCESS;
 }
 
@@ -198,7 +199,7 @@ PacketShared::STATUS PacketCommand::addCommand(const byte* type_id,
  * which a type ID cannot be matched
  */
 PacketShared::STATUS PacketCommand::registerDefaultHandler(void (*function)(PacketCommand&)) {
-  if (function != NULL){
+  if (function != nullptr){
     _default_command.function = function;
     return PacketShared::SUCCESS;
   }
@@ -213,7 +214,7 @@ PacketShared::STATUS PacketCommand::registerDefaultHandler(void (*function)(Pack
  * packet into its input buffer
  */
 PacketShared::STATUS PacketCommand::registerRecvCallback(bool (*function)(PacketCommand&)){
-  if (function != NULL){
+  if (function != nullptr){
     _recv_callback = function;
     return PacketShared::SUCCESS;
   }
@@ -227,7 +228,7 @@ PacketShared::STATUS PacketCommand::registerRecvCallback(bool (*function)(Packet
  * packet from its output buffer
  */
 PacketShared::STATUS PacketCommand::registerReplySendCallback(void (*function)(PacketCommand&)){
-  if (function != NULL){
+  if (function != nullptr){
     _reply_send_callback = function;
     return PacketShared::SUCCESS;
   }
@@ -241,7 +242,7 @@ PacketShared::STATUS PacketCommand::registerReplySendCallback(void (*function)(P
  * packet from its output buffer
  */
 PacketShared::STATUS PacketCommand::registerSendCallback(bool (*function)(PacketCommand&)){
-  if (function != NULL){
+  if (function != nullptr){
     _send_callback = function;
     return PacketShared::SUCCESS;
   }
@@ -255,7 +256,7 @@ PacketShared::STATUS PacketCommand::registerSendCallback(bool (*function)(Packet
  * packet from its output buffer
  */
 PacketShared::STATUS PacketCommand::registerSendNonblockingCallback(void (*function)(PacketCommand&)){
-  if (function != NULL){
+  if (function != nullptr){
     _send_nonblocking_callback = function;
     return PacketShared::SUCCESS;
   }
@@ -269,7 +270,7 @@ PacketShared::STATUS PacketCommand::registerSendNonblockingCallback(void (*funct
  * packet from its output buffer
  */
 PacketShared::STATUS PacketCommand::registerSendBufferedCallback(void (*function)(PacketCommand&)){
-  if (function != NULL){
+  if (function != nullptr){
     _send_buffered_callback = function;
     return PacketShared::SUCCESS;
   }
@@ -282,7 +283,7 @@ PacketShared::STATUS PacketCommand::registerSendBufferedCallback(void (*function
  * 
  */
 PacketShared::STATUS PacketCommand::registerReplyRecvCallback(bool (*function)(PacketCommand&)){
-  if (function != NULL){
+  if (function != nullptr){
     _reply_recv_callback = function;
     return PacketShared::SUCCESS;
   }
@@ -373,12 +374,12 @@ PacketShared::STATUS PacketCommand::recv(bool& gotPacket) {
   PACKETCOMMAND_DEBUG_PORT.print(F("#\t_input_len="));DEBUG_PORT.println(_input_len);
   #endif
   //call the read callback which should load data into _input_buffer and set len
-  if (_recv_callback != NULL){
+  if (_recv_callback != nullptr){
     gotPacket = (*_recv_callback)(*this);
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried write using a NULL read callback function pointer"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried write using a nullptr read callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -410,7 +411,7 @@ PacketShared::STATUS PacketCommand::set_recvTimestamp(uint32_t timestamp_micros)
  * command entries, and if a match is found it is saved in the _current_command
  * private attribute and we return SUCCESS. If no match is found, then the _current_command.function 
  * is set to _default_command.function as long as that has been setup by a call to setDefaultHandler, 
- * such that it is not NULL; otherwise, we return ERROR_NO_TYPE_ID_MATCH.  If return is SUCCESS, then
+ * such that it is not nullptr; otherwise, we return ERROR_NO_TYPE_ID_MATCH.  If return is SUCCESS, then
  * the packet buffer position will have been moved past the type ID field to prepare for parsing any 
  * following binary fields; otherwise, the packet buffer position will remain at the byte that caused 
  * the error condition.
@@ -492,7 +493,7 @@ PacketShared::STATUS PacketCommand::matchCommand(){
     }
   }
   //no type ID has been matched
-  if (_default_command.function != NULL){  //set the default handler if it has been registered
+  if (_default_command.function != nullptr){  //set the default handler if it has been registered
     #ifdef PACKETCOMMAND_DEBUG
     PACKETCOMMAND_DEBUG_PORT.println(F("# Setting the default command handler"));
     #endif
@@ -529,13 +530,13 @@ PacketShared::STATUS PacketCommand::dispatchCommand() {
   #ifdef PACKETCOMMAND_DEBUG
   PACKETCOMMAND_DEBUG_PORT.println(F("# In PacketCommand::dispatchCommand"));
   #endif
-  if (_current_command.function != NULL){
+  if (_current_command.function != nullptr){
     (*_current_command.function)(*this);
     return PacketShared::SUCCESS;
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to dispatch a NULL handler function pointer"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to dispatch a nullptr handler function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -592,7 +593,7 @@ PacketShared::STATUS PacketCommand::send(bool& sentPacket){
   PACKETCOMMAND_DEBUG_PORT.print(F("# \ttimestamp_micros: "));
   PACKETCOMMAND_DEBUG_PORT.println(timestamp_micros);
   #endif
-  if (_send_callback != NULL){
+  if (_send_callback != nullptr){
 //    set_sendTimestamp(timestamp_micros);  //markdown the time write now
 //    if (_output_flags & PacketShared::OPFLAG_APPEND_SEND_TIMESTAMP){
 //      if ((_output_len + sizeof(uint32_t)) < PacketShared::DATA_BUFFER_SIZE){ //prevent buffer overrun
@@ -610,7 +611,7 @@ PacketShared::STATUS PacketCommand::send(bool& sentPacket){
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to send using a NULL send callback function pointer"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to send using a nullptr send callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -624,7 +625,7 @@ PacketShared::STATUS PacketCommand::send_nonblocking(){
   PACKETCOMMAND_DEBUG_PORT.print(F("# \ttimestamp_micros: "));
   PACKETCOMMAND_DEBUG_PORT.println(timestamp_micros);
   #endif
-  if (_send_nonblocking_callback != NULL){
+  if (_send_nonblocking_callback != nullptr){
 //    set_sendTimestamp(timestamp_micros);  //markdown the time write now
 //    if (_output_flags & PacketShared::OPFLAG_APPEND_SEND_TIMESTAMP){
 //      if ((_output_len + sizeof(uint32_t)) < PacketShared::DATA_BUFFER_SIZE){ //prevent buffer overrun
@@ -642,7 +643,7 @@ PacketShared::STATUS PacketCommand::send_nonblocking(){
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to send using a NULL send nonblocking callback function pointer"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to send using a nullptr send nonblocking callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -651,7 +652,7 @@ PacketShared::STATUS PacketCommand::send_nonblocking(){
 // Use the '_send_buffered_callback' to send return packet
 PacketShared::STATUS PacketCommand::send_buffered(){
   uint32_t timestamp_micros = micros();
-  if (_send_buffered_callback != NULL){
+  if (_send_buffered_callback != nullptr){
 //    set_sendTimestamp(timestamp_micros);  //markdown the time write now
 //    if (_output_flags & PacketShared::OPFLAG_APPEND_SEND_TIMESTAMP){
 //      if ((_output_len + sizeof(uint32_t)) < PacketShared::DATA_BUFFER_SIZE){ //prevent buffer overrun
@@ -669,7 +670,7 @@ PacketShared::STATUS PacketCommand::send_buffered(){
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to send using a NULL send_buffered_callback function pointer"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to send using a nullptr send_buffered_callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -682,14 +683,14 @@ PacketShared::STATUS PacketCommand::set_sendTimestamp(uint32_t timestamp_micros)
 
 // Use the '_reply_send_callback' to send a quick reply
 PacketShared::STATUS PacketCommand::reply_send(){
-  if (_reply_send_callback != NULL){
+  if (_reply_send_callback != nullptr){
     //call the send callback
     (*_reply_send_callback)(*this);
     return PacketShared::SUCCESS;
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to send using a NULL send callback function pointer"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to send using a nullptr send callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -698,14 +699,14 @@ PacketShared::STATUS PacketCommand::reply_send(){
 
 // Use the '_reply_send_callback' to send a quick reply
 PacketShared::STATUS PacketCommand::reply_recv(){
-  if (_reply_recv_callback != NULL){
+  if (_reply_recv_callback != nullptr){
     //call the send callback
     (*_reply_recv_callback)(*this);
     return PacketShared::SUCCESS;
   }
   else{
     #ifdef PACKETCOMMAND_DEBUG
-    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to receive using a NULL recv callback function pointer"));
+    PACKETCOMMAND_DEBUG_PORT.println(F("### Error: tried to receive using a nullptr recv callback function pointer"));
     #endif
     return PacketShared::ERROR_NULL_HANDLER_FUNCTION_POINTER;
   }
@@ -787,7 +788,7 @@ PacketShared::STATUS PacketCommand::enqueueInputBuffer(PacketQueue& pq){
   #endif
   //build a packet struct to hold current buffer state
   PacketShared::Packet pkt;
-  pkt.length = min(_input_len, PacketShared::DATA_BUFFER_SIZE);
+  pkt.length = min((size_t) _input_len, PacketShared::DATA_BUFFER_SIZE);
   pkt.timestamp = _recv_timestamp_micros;  //this should have been recorded as close to the RX time as possible
   pkt.flags  = _input_flags;
   memcpy(pkt.data, _input_buffer, pkt.length);
@@ -876,7 +877,7 @@ PacketShared::STATUS PacketCommand::enqueueOutputBuffer(PacketQueue& pq){
   #endif
   //build a packet struct to hold current buffer state
   PacketShared::Packet pkt;
-  pkt.length = min(_output_len, PacketShared::DATA_BUFFER_SIZE);
+  pkt.length = min((size_t) _output_len, PacketShared::DATA_BUFFER_SIZE);
   pkt.timestamp = 0;
   pkt.flags  = _output_flags;
   memcpy(pkt.data, _output_buffer, pkt.length);
@@ -916,7 +917,7 @@ PacketShared::STATUS PacketCommand::requeueOutputBuffer(PacketQueue& pq){
   #endif
   //build a packet struct to hold current buffer state
   PacketShared::Packet pkt;
-  pkt.length = min(_output_len, PacketShared::DATA_BUFFER_SIZE);
+  pkt.length = min((size_t) _output_len, PacketShared::DATA_BUFFER_SIZE);
   pkt.timestamp = 0;
   pkt.flags  = _output_flags;
   memcpy(pkt.data, _output_buffer, pkt.length);

@@ -20,13 +20,9 @@
 #ifndef PACKETCOMMAND_H
 #define PACKETCOMMAND_H
 
-#if defined(WIRING) && WIRING >= 100
-  #include <Wiring.h>
-#elif defined(ARDUINO) && ARDUINO >= 100
-  #include <Arduino.h>
-#else
-  #include <WProgram.h>
-#endif
+
+#include <Arduino.h>
+
 #include <Stream.h>
 #include <stdint.h>
 
@@ -46,6 +42,7 @@
 
 typedef float  float32_t;
 typedef double float64_t;
+typedef byte   uint8_t;
 
 /******************************************************************************/
 // PacketCommand
@@ -193,21 +190,21 @@ class PacketCommand{
     size_t  _commandCount;
     size_t  _maxCommands;
     //track state of input buffer
-    size_t   _inputBufferSize;
     byte*    _input_buffer;        //this will be a fixed buffer location
-    size_t   _input_index;
-    size_t   _input_len;
-    byte     _input_flags;
+    size_t   _inputBufferSize;
+    volatile size_t   _input_index;
+    volatile size_t   _input_len;
+    volatile byte     _input_flags;
+    volatile uint32_t _recv_timestamp_micros;
     struct InputProperties _input_properties;
-    uint32_t _recv_timestamp_micros;
     //track state of output buffer
-    size_t _outputBufferSize;
     byte*  _output_buffer;       //this will be a fixed buffer location
-    size_t _output_index;
-    size_t _output_len;
-    byte   _output_flags;
-    uint32_t _output_to_address;
-    uint32_t _send_timestamp_micros;
+    size_t _outputBufferSize;
+    volatile size_t _output_index;
+    volatile size_t _output_len;
+    volatile byte   _output_flags;
+    volatile uint32_t _output_to_address;
+    volatile uint32_t _send_timestamp_micros;
     //cached callbacks
     bool (*_send_callback)(PacketCommand& this_pCmd);
     void (*_send_nonblocking_callback)(PacketCommand& this_pCmd);

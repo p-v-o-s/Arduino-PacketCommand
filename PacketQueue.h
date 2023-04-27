@@ -37,9 +37,9 @@ private:
   void _put_at(size_t index, PacketShared::Packet& pkt);
   void _get_from(size_t index, PacketShared::Packet& pkt);
   
-  size_t _beg_index;
-  size_t _end_index;
-  size_t _size; 
+  volatile size_t _beg_index;
+  volatile size_t _end_index;
+  volatile size_t _size;
   size_t _capacity;
   size_t _dataBufferSize;
   PacketShared::Packet* _slots;
